@@ -19,13 +19,13 @@ public class SampleRate {
 	
 	public void start() {
 		
-		List<Trace> accelerometer = ReadWriteTrace.readFile(rotated.concat("accelerometer.dat"));
+		List<Trace> accelerometer = ReadWriteTrace.readFile(rotated.concat("accelerometer.dat"), 3);
 		List<Trace> sampled_accelerometer = interpolate(accelerometer, 2.0);
 		
 		
 		
 		List<Trace> gyroscope = new ArrayList<Trace>();
-		gyroscope = ReadWriteTrace.readFile(rotated.concat("gyroscope.dat"));
+		gyroscope = ReadWriteTrace.readFile(rotated.concat("gyroscope.dat"), 3);
 		List<Trace> sampled_gyroscope = new ArrayList<Trace>();
 		sampled_gyroscope = interpolate(gyroscope, 2.0);
 		

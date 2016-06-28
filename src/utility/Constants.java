@@ -19,7 +19,7 @@ public class Constants {
 	public static final double kMPGToKPL = 0.425143707;
 	/**/
     public static final String kInputSeperator = "\t";
-	public static final String kOutputSeperator = "\t";
+	public static final String kOutputSeperator = ",";
     public static final String slash = "/";
     
     public static final double kAirFuelRatio = 14.67;

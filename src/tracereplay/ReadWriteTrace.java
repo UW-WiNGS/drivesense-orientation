@@ -18,11 +18,6 @@ public class ReadWriteTrace {
 
 	
 	/*given a file path, read the traces and return*/
-	static public List<Trace> readFile(String path) {
-		int dim = 3;
-		return readFile(path, dim);
-	}
-
 	static public List<Trace> readFile(String filePath, int dim)
 	{
 		List<Trace> data = new ArrayList<Trace>();

@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import utility.Log;
 import utility.Trace;
 
 public class SqliteAccess {
@@ -15,8 +16,7 @@ public class SqliteAccess {
 	private static Connection connection = null;
 	private final static String TAG = "SqliteAccess";
 	 
-	private static String prefix = "jdbc:sqlite:"; ///home/lkang/Dropbox/projects/obd/data/test_trims/raw/1395689940634.db
-	private static String output = "/home/lkang/Dropbox/projects/obd/data/test_trims/3/";
+	private static String prefix = "jdbc:sqlite:"; 
 	
 	private static void close() {
 		try {
@@ -43,7 +43,7 @@ public class SqliteAccess {
 	}
 	
 
-	public static List<Trace> loadSensorData(String path, String type, long start) {
+	public static List<Trace> loadSensorData(String path, long start, String type) {
 		
 		connect(prefix.concat(path));
 		
@@ -88,5 +88,45 @@ public class SqliteAccess {
 	    close();
 	    return res;
 	}
+	
+	
+	
+	public static List<Trace> loadOBDData(String path, long start, String type) {
+	
+		Log.log(TAG, "Load OBD data from " + path);
+		connect(prefix.concat(path));
+		
+		List<Trace> res = new ArrayList<Trace>();
+		Statement statement = null;
+		ResultSet rs = null;
+		//long start = Long.MAX_VALUE;
+	    Trace trace = null;
+	    String cmdName = "", cmdResult = "";
+		try {
+			statement = connection.createStatement();
+		    rs = statement.executeQuery("select * from records");
+
+		    while(rs.next()) {
+		    	trace = new Trace(1);
+		    	long time = Long.parseLong(rs.getString("time"));
+		    	cmdName = rs.getString("cmdName");
+		    	cmdResult = rs.getString("cmdResult");
+		    	if(!type.equals(cmdName)) {
+		    		continue;
+		    	}
+		    	trace.time = time - start;
+		    	int len = cmdResult.length();
+		    	trace.values[0] = Integer.parseInt(cmdResult.substring(0, len - 4));
+		    	trace.type = type;
+		    	res.add(trace);
+		    }
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+	    close();
+	    return res;
+	}
+	
 
 }

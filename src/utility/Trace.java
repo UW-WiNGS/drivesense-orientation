@@ -2,6 +2,7 @@ package utility;
 
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.text.DecimalFormat;
 
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -18,6 +19,7 @@ public class Trace {
     public static String MAGNETOMETER = "magnetometer";
     public static String ROTATION_MATRIX = "rotation_matrix";
     public static String GPS = "gps";
+    public static String SPEED = "Vehicle Speed";
 	
 
 	public Trace() {
@@ -69,6 +71,16 @@ public class Trace {
 		}
 		
 		//System.out.println(time + Constants.kSeperator + values[0]);
+	}
+	
+	public String toString() {
+		String res = new String("");
+		res = res.concat(String.valueOf(time));
+		DecimalFormat df2 = new DecimalFormat("#.##");
+		for(int i = 0; i < dim; ++i) {
+			res = res.concat(Constants.kOutputSeperator + String.valueOf(df2.format(values[i])));
+		}
+		return res;
 	}
 	
 	public String toJson() {	
