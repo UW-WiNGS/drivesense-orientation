@@ -51,16 +51,6 @@ public class ReadWriteTrace {
 		return data;  
 	}
 	
-	public static void createFolder(String folder) {
-		File dir = new File(folder);
-		if (!dir.exists()) {
-			System.out.println("creating folder: " + folder);
-		    boolean result = dir.mkdirs();
-		    if(!result){    
-		       Log.error("create folder failed: ", folder);  
-		     }  
-		}
-	}
 	
 	/*write traces into a file*/
 	public static void writeFile(List<Trace> traces, String filePath) {

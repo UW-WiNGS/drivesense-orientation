@@ -72,15 +72,15 @@ public class DirectoryWalker {
 		return files_;
 	}
 	
-	public static void createFolder(String directory, String name) {
-		Log.log(TAG, "create folder:" + directory + name);
-		File dir = new File(directory.concat(name));
+	public static void createFolder(String directory) {
+		Log.log(TAG, "create folder:" + directory);
+		File dir = new File(directory);
 		if(dir.exists()) {
-			Log.log(TAG, directory + name + " already exists");
+			Log.log(TAG, directory + " already exists");
 			return;
 		}
 		if(true != dir.mkdirs()) {
-			Log.log(TAG, "create folder error: folder:" + directory + " file name:" + name);
+			Log.log(TAG, "create folder error: folder:" + directory);
 		}
 	}
 	

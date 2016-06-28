@@ -3,6 +3,8 @@ package main;
 import java.util.ArrayList;
 import java.util.List;
 
+import tracereplay.DirectoryWalker;
+import tracereplay.ReadWriteTrace;
 import utility.Constants;
 import utility.Log;
 import utility.Trace;
@@ -18,15 +20,25 @@ public class Main {
 	}
 	
 	
-	private static String input = "/home/lkang/Dropbox/projects/drivesense/data/lei_db";
-	private static String output = "/home/lkang/Dropbox/projects/drivesense/data/lei_dat";
+	private static String input = "/home/lkang/Dropbox/projects/drivesense/data/lei_db/";
+	private static String output = "/home/lkang/Dropbox/projects/drivesense/data/lei_dat/";
 	
 	public static void start() {
-		
+		List<String> files = DirectoryWalker.getFileNames(input);
+		for(String file: files) {
+			String name = file.substring(0, 13);
+			String ipath = input.concat(file);
+			long start = Long.valueOf(name);
+			String opath = output.concat(name);
+			
+			DirectoryWalker.createFolder(opath);
+			writeTraces(ipath, start, opath);
+			break;
+		}
 	}
 	
 	
-	public static void writeTraces(String path, long start) {
+	public static void writeTraces(String path, long start, String opath) {
 		
 		List<Trace> speed = new ArrayList<Trace>();
 		List<Trace> obdspeed = SqliteAccess.loadOBDData(path, start, Trace.SPEED);
@@ -43,12 +55,31 @@ public class Main {
 			nTrace.values[1] = acce;
 			speed.add(nTrace);
 		}
+		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
+		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
+		List<Trace> rotation_matrix = SqliteAccess.loadSensorData(path, start, Trace.ROTATION_MATRIX);
+		List<Trace> gps = SqliteAccess.loadSensorData(path, start, Trace.GPS);
 		
-		for(Trace trace: speed) {
-			Log.log(trace.toString());
+		
+		ReadWriteTrace.writeFile(speed, opath + "/speed.dat");
+		ReadWriteTrace.writeFile(accelerometer, opath + "/accelerometer.dat");
+		ReadWriteTrace.writeFile(gyroscope, opath + "/gyroscope.dat");
+		ReadWriteTrace.writeFile(rotation_matrix, opath + "/rotation_matrix.dat");
+		ReadWriteTrace.writeFile(gps, opath + "/gps.dat");
+	}
+	
+	public static void traceReplay(List<List<Trace> > input) {
+		int num = input.size();
+		int index[] = new int[num];
+		for(int i = 0; i < num; ++i) {
+			index[i] = 0;
 		}
-		
-
+		while(true) {
+			long time = -1;
+			for(int i = 0; i < num; ++i) {
+				
+			}
+		}
 	}
 
 }
