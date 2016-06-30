@@ -6,8 +6,6 @@ import utility.Trace;
 
 public class RotationMatrix {
 
-	    private long tripid_;
-
 
 	    private long time_;
 
@@ -46,10 +44,6 @@ public class RotationMatrix {
 		public boolean aligned = false;
 		public boolean all_set = false;
 	    
-
-	    public void setTripID(long id) {
-	        this.tripid_ = id;
-	    }
 
 	    public RotationMatrix() {
 
@@ -159,14 +153,11 @@ public class RotationMatrix {
 	                rightnum ++;
 	        }
 
-
 	        int y_indicator = (rightnum/raw_xys.size() > 0.7)? 1:-1;
 	        int x_indicator = ((y_indicator > 0) ^ (slope > 0))? -1:1;
 
 	        unit_x = UnitVector( new PairDouble(x_indicator, x_indicator*perpendicular_slope) );
 	        unit_y = UnitVector( new PairDouble(y_indicator, y_indicator*slope) );
-
-	        PairDouble[] res = {unit_x, unit_y};
 
 	        projx0_ = x_indicator;
 	        projy0_ = x_indicator*perpendicular_slope;

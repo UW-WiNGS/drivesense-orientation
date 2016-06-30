@@ -78,6 +78,7 @@ public class SqliteAccess {
 		    		trace.values[i] = Double.parseDouble(rs.getString("x".concat(String.valueOf(i))));
 		    	}
 		    	trace.time = time - start;
+		    	trace.type = type;
 		    	res.add(trace);
 		    }
 		} catch (SQLException e) {

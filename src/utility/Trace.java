@@ -28,11 +28,19 @@ public class Trace {
 		values = new double [dim];
 	}
 	
+	
 	public Trace(int d) {
 		time = 0;
 		dim = d;
 		values = new double [dim];
 	}
+	public Trace(String type, int d) {
+		this.type = type;
+		time = 0;
+		dim = d;
+		values = new double [dim];
+	}
+
 	
 	public void setValues(double x, double y, double z) {
 		values[0] = x;
