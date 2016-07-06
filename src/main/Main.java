@@ -36,7 +36,8 @@ public class Main {
 			String opath = output.concat(name);
 			
 			DirectoryWalker.createFolder(opath);
-			processTrip(ipath, start, opath);
+			//processTrip(ipath, start, opath);
+			flatRoadDetector(ipath, start, opath);
 			break;
 		}
 	}
@@ -95,6 +96,7 @@ public class Main {
 		
 		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer);
 		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
+		
 		
 		List<Trace> window_accelerometer = new LinkedList<Trace>();
 		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
@@ -236,5 +238,79 @@ public class Main {
 		}
 		return detector.projected_accelerometer;
 	}
+	
+	
+	private static Trace rotate(Trace raw_tr, double[] rM) {
+		Trace calculated_tr = new Trace();
+		calculated_tr.time = raw_tr.time;
+		double x, y, z;
+		x = raw_tr.values[0];
+		y = raw_tr.values[1];
+		z = raw_tr.values[2];
+
+		calculated_tr.values[0] = x * rM[0] + y * rM[1] + z * rM[2];
+		calculated_tr.values[1] = x * rM[3] + y * rM[4] + z * rM[5];
+		calculated_tr.values[2] = x * rM[6] + y * rM[7] + z * rM[8];
+
+		return calculated_tr;
+	}
+
+	
+
+	public static void flatRoadDetector(String path, long start, String opath) {
+		List<Trace> speed = loadOBDSpeed(path, start);
+		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
+		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
+		List<Trace> rotation_matrix = SqliteAccess.loadSensorData(path, start, Trace.ROTATION_MATRIX);
+		List<Trace> gps = SqliteAccess.loadSensorData(path, start, Trace.GPS);
+		
+		
+		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer);
+		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
+		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix);
+		
+		List<Trace> rotated_accelerometer = new ArrayList<Trace>();
+		for(Trace acce: smoothed_accelerometer) {
+			long time = acce.time;
+			Trace rm = PreProcess.getTraceAt(smoothed_rm, time);
+			if(rm == null) continue;
+			Trace nt = rotate(acce, rm.values);
+			rotated_accelerometer.add(nt);
+		}
+		
+		
+		ReadWriteTrace.writeFile(rotated_accelerometer, opath + "/fr_rotated_accelerometer.dat");
+		
+		
+		List<Trace> correlations = new ArrayList<Trace>();
+		List<Trace> training = new ArrayList<Trace>();
+		
+		int wnd = 10;
+		List<Trace> window = new LinkedList<Trace>();
+		for(int i = 0; i < rotated_accelerometer.size(); ++i) {
+			Trace tr = new Trace(4);
+			tr.time = rotated_accelerometer.get(i).time;
+			System.arraycopy(rotated_accelerometer.get(i).values, 0, tr.values, 0, 3);
+			tr.values[3] = Math.sqrt(Math.pow(tr.values[0], tr.values[1]));
+			window.add(tr);
+			if(window.size() >= wnd) {
+				window.remove(0);
+				Trace trace = new Trace(3);
+				trace.time = rotated_accelerometer.get(i).time;
+				trace.values[0] = linear_correlation(window, 0, 1);
+				trace.values[1] = linear_correlation(window, 1, 2);
+				trace.values[2] = linear_correlation(window, 3, 2);		
+				correlations.add(trace);
+				
+				if(Math.abs(trace.values[0]) > 0.94 && trace.values[1] < 0.1 && trace.values[2] < 0.1) {
+					training.add(rotated_accelerometer.get(i));
+				}
+			}
+		}
+		ReadWriteTrace.writeFile(correlations, opath + "/fr_correlations.dat");
+		ReadWriteTrace.writeFile(training, opath + "/fr_training.dat");
+		
+	}
+	
 
 }
