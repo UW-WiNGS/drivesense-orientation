@@ -60,6 +60,16 @@ public class Main {
 		return speed;
 	}
 	
+	private static void calculateGravity(List<Trace> accelerometer) {
+		for(int i = 0; i < accelerometer.size(); ++i) {
+			double gravity = 0.0;
+			for(int j = 0; j < accelerometer.get(j).dim; ++j) {
+				gravity += Math.pow(accelerometer.get(j).values[j], 2.0);
+			}
+			Log.log(Math.sqrt(gravity));
+		}
+	}
+	
 	public static void processTrip(String path, long start, String opath) {
 		List<Trace> speed = loadOBDSpeed(path, start);
 		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
@@ -96,6 +106,7 @@ public class Main {
 			if(window_accelerometer.size() > kWindowSize) {
 				boolean steady = detector.stopped(window_accelerometer);
 				if(steady && rm.rm_set == false) {
+					calculateGravity(window_accelerometer);
 					List<Trace> sub = PreProcess.extractSubList(rotation_matrix, window_accelerometer.get(0).time, window_accelerometer.get(kWindowSize - 1).time);
 					rotation = PreProcess.getAverage(sub);
 					if(rotation !=null) {
@@ -139,11 +150,62 @@ public class Main {
 		ReadWriteTrace.writeFile(projected_accelerometer, opath + "/projected_accelerometer.dat");
 		ReadWriteTrace.writeFile(projected_gyroscope, opath + "/projected_gyroscope.dat");
 
+		List<Trace> correlations = new ArrayList<Trace>();
+
+		List<Trace> training = new ArrayList<Trace>();
+		
+		int wnd = 10;
+		List<Trace> window = new LinkedList<Trace>();
+		for(int i = 0; i < rotated_accelerometer.size(); ++i) {
+			window.add(rotated_accelerometer.get(i));
+			if(window.size() >= wnd) {
+				window.remove(0);
+				Trace trace = new Trace(3);
+				trace.time = projected_accelerometer.get(i).time;
+				trace.values[0] = linear_correlation(window, 0, 1);
+				trace.values[1] = linear_correlation(window, 1, 2);
+				trace.values[2] = linear_correlation(window, 2, 0);		
+				correlations.add(trace);
+				
+				if(Math.abs(trace.values[0]) > 0.94 && trace.values[1] < 0.1 && trace.values[2] < 0.1) {
+					training.add(rotated_accelerometer.get(i));
+				}
+			}
+		}
+		ReadWriteTrace.writeFile(correlations, opath + "/correlations.dat");
+		ReadWriteTrace.writeFile(training, opath + "/training.dat");
+		
 	}
 	
 	
 	
-	
+
+	public static double linear_correlation(List<Trace> input, int x, int y) {
+		double corr = 0.0;
+		int sz = input.size();
+		double average_x = 0.0;
+		double average_y = 0.0;
+		for(int i = 0 ; i < sz; ++i) {
+			average_x += input.get(i).values[x];
+			average_y += input.get(i).values[y];
+		}
+		average_x /= sz;
+		average_y /= sz;
+		
+		double upper = 0.0;
+		double m_x = 0.0, m_y = 0.0;
+		for(int i = 0 ; i < sz; ++i) {
+			double tmpx = input.get(i).values[x];
+			double tmpy = input.get(i).values[y];
+			upper += (tmpx - average_x) * (tmpy - average_y);
+			m_x += (tmpx - average_x) * (tmpx - average_x);
+			m_y += (tmpy - average_y) * (tmpy - average_y);
+		}
+		if(m_x*m_y ==0 || m_x*m_y != m_x*m_y) corr = 1;
+		else corr = upper / Math.sqrt(m_x * m_y);
+		
+		return corr;
+	}
 	
 	public static List<Trace> traceReplay(List<List<Trace> > input) {
 		int num = input.size();
