@@ -30,7 +30,7 @@ public class Constants {
     //refers one sample per second
     public static final double kSampleRate = 1.0;
     
-	public static final double kExponentialMovingAverageAlpha = 0.1;
+	public static final double kExponentialMovingAverageAlpha = 0.3;
     /**
      * works for Lei only
      */

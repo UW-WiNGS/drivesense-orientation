@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.math3.fitting.PolynomialCurveFitter;
+import org.apache.commons.math3.fitting.WeightedObservedPoints;
+
 import tracereplay.DirectoryWalker;
 import tracereplay.PreProcess;
 import tracereplay.ReadWriteTrace;
@@ -257,8 +260,27 @@ public class Main {
 
 	
 
+	private static boolean isTurning(List<Trace> wingyro) {
+		Trace sum = new Trace(3);
+		sum.time = wingyro.get(0).time;
+		for(int i = 0; i < wingyro.size(); ++i) {
+			Trace cur = wingyro.get(i);
+			for(int j = 0; j < sum.dim; ++j) {
+				sum.values[j] += cur.values[j];
+			}
+		}
+		boolean turnning = false;
+		for(int j = 0; j < sum.dim; ++j) {
+			sum.values[j] /= wingyro.size();
+			if(Math.abs(sum.values[j]) > 0.05) {
+				turnning = true;
+			}
+		}
+		return turnning;
+	}
+	
 	public static void flatRoadDetector(String path, long start, String opath) {
-		List<Trace> speed = loadOBDSpeed(path, start);
+		List<Trace> speed = PreProcess.interpolate(loadOBDSpeed(path, start), 1.0);
 		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
 		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
 		List<Trace> rotation_matrix = SqliteAccess.loadSensorData(path, start, Trace.ROTATION_MATRIX);
@@ -268,49 +290,209 @@ public class Main {
 		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer);
 		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
 		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix);
+
 		
-		List<Trace> rotated_accelerometer = new ArrayList<Trace>();
+		int wnd = 10;
+		List<Trace> window_gyroscope = new LinkedList<Trace>();
+		List<Trace> calculated_gyroscope = new ArrayList<Trace>();
+		for(Trace gyro: smoothed_gyroscope) {
+			Trace trace = new Trace(4);
+			trace.time = gyro.time;
+			System.arraycopy(gyro.values, 0, trace.values, 0, 3);
+			window_gyroscope.add(trace);
+			boolean turnning = true;
+			if(window_gyroscope.size() > wnd) {
+				turnning = isTurning(window_gyroscope);
+				window_gyroscope.remove(0);
+			}
+			trace.values[3] = turnning == true? 1.0 : 0.0;
+			calculated_gyroscope.add(trace);
+		}
+		ReadWriteTrace.writeFile(calculated_gyroscope, opath + "/fr_calculated_gyroscope.dat");
+
+		
+		
+		List<Trace> calculated_accelerometer = new ArrayList<Trace>();
 		for(Trace acce: smoothed_accelerometer) {
-			long time = acce.time;
-			Trace rm = PreProcess.getTraceAt(smoothed_rm, time);
-			if(rm == null) continue;
-			Trace nt = rotate(acce, rm.values);
-			rotated_accelerometer.add(nt);
+			Trace trace = new Trace(4);
+			trace.time = acce.time;	
+			System.arraycopy(acce.values, 0, trace.values, 0, 3);
+			double sum = 0.0;
+			for(int i = 0; i < 3; ++i) {
+				sum += Math.pow(acce.values[i], 2.0);
+			}
+			trace.values[3] = Math.sqrt(sum);
+			calculated_accelerometer.add(trace);
 		}
 		
 		
-		ReadWriteTrace.writeFile(rotated_accelerometer, opath + "/fr_rotated_accelerometer.dat");
+		ReadWriteTrace.writeFile(calculated_accelerometer, opath + "/fr_calculated_accelerometer.dat");
 		
+		
+		List<Trace> subacce = PreProcess.extractSubList(smoothed_accelerometer, 130*1000, 200*1000);
+		List<Trace> subgyro = PreProcess.extractSubList(smoothed_gyroscope, 130*1000, 200*1000);
+		List<Trace> subrm = PreProcess.extractSubList(rotation_matrix, 130*1000, 135*1000);
+		Trace rm = PreProcess.getAverage(subrm);
+		
+		Trace gyro_drift = PreProcess.getAverage(subgyro.subList(0, 10));
+		Log.log(gyro_drift);
+		
+		List<Trace> res = new ArrayList<Trace>();
+		List<Trace> direction = new ArrayList<Trace>();
+		boolean begin = false, over = false;
+		for(Trace trace: subacce) {
+			Trace cur = rotate(trace, rm.values);
+			double tmp = Math.sqrt(Math.pow(cur.values[0], 2.0) + Math.pow(cur.values[1], 2.0)); 
+			if(!over && tmp > 0.6) {
+				direction.add(cur);
+				begin = true;
+			}
+			if(!over && tmp < 0.6 && begin == true) {
+				over = true;
+			}
+			res.add(cur);
+		}
+		
+		
+		Trace test = PreProcess.getAverage(direction);
+		Trace unit = getUnitVector(test);
+		Trace yaxe = new Trace(3);
+		yaxe.setValues(0.0, 1.0, 0.0);
+		Trace xyrm = rmBetweenVectors(unit, yaxe);
+		
+		Log.log(xyrm);
+		
+		List<Trace> subprojected = new ArrayList<Trace>();
+		for(Trace trace: res) {
+			Trace ntr = rotate(trace, xyrm.values);
+			subprojected.add(ntr);
+		}
+		
+		List<Trace> projectedgyro = new ArrayList<Trace>();
+		for(Trace trace: smoothed_gyroscope) {
+			Log.log(trace);
+			for(int i = 0; i < 3; ++i) {
+				trace.values[i] -= gyro_drift.values[i];
+			}
+			Log.log(trace);
+			
+			Trace rot = rotate(trace, rm.values);
+			Trace cur = rotate(rot, xyrm.values);
+			projectedgyro.add(cur);
+		}
+		
+		
+		Log.log(unit);
+		curveFit(res);
+		
+		
+		ReadWriteTrace.writeFile(speed, opath + "/speed.dat");
+		ReadWriteTrace.writeFile(res, opath + "/fr_rotated_accelerometer.dat");
+		ReadWriteTrace.writeFile(subprojected, opath + "/fr_projected_accelerometer.dat");
+		ReadWriteTrace.writeFile(projectedgyro, opath + "/fr_projected_gyroscope.dat");
+		
+		
+		/*
 		
 		List<Trace> correlations = new ArrayList<Trace>();
 		List<Trace> training = new ArrayList<Trace>();
 		
 		int wnd = 10;
 		List<Trace> window = new LinkedList<Trace>();
-		for(int i = 0; i < rotated_accelerometer.size(); ++i) {
+		for(int i = 0; i < calculated_accelerometer.size(); ++i) {
 			Trace tr = new Trace(4);
-			tr.time = rotated_accelerometer.get(i).time;
-			System.arraycopy(rotated_accelerometer.get(i).values, 0, tr.values, 0, 3);
+			tr.time = calculated_accelerometer.get(i).time;
+			System.arraycopy(calculated_accelerometer.get(i).values, 0, tr.values, 0, 3);
 			tr.values[3] = Math.sqrt(Math.pow(tr.values[0], tr.values[1]));
 			window.add(tr);
 			if(window.size() >= wnd) {
 				window.remove(0);
 				Trace trace = new Trace(3);
-				trace.time = rotated_accelerometer.get(i).time;
+				trace.time = calculated_accelerometer.get(i).time;
 				trace.values[0] = linear_correlation(window, 0, 1);
 				trace.values[1] = linear_correlation(window, 1, 2);
 				trace.values[2] = linear_correlation(window, 3, 2);		
 				correlations.add(trace);
 				
 				if(Math.abs(trace.values[0]) > 0.94 && trace.values[1] < 0.1 && trace.values[2] < 0.1) {
-					training.add(rotated_accelerometer.get(i));
+					training.add(calculated_accelerometer.get(i));
 				}
 			}
 		}
 		ReadWriteTrace.writeFile(correlations, opath + "/fr_correlations.dat");
 		ReadWriteTrace.writeFile(training, opath + "/fr_training.dat");
-		
+		*/
 	}
+	
+	private static Trace getUnitVector(Trace input) {
+		Trace res = new Trace(3);
+		double sum = Math.sqrt(Math.pow(input.values[0], 2.0) + Math.pow(input.values[1], 2.0));
+		res.setValues(input.values[0]/sum, input.values[1]/sum, 0.0);
+		return res;
+	}
+	
+	private static Trace rmBetweenVectors(Trace v0, Trace v1) {
+		Trace res = new Trace(9);
+		double cos_theta = v0.values[0] * v1.values[0] + v0.values[1] * v1.values[1];
+		double sin_theta = v0.values[0] * v1.values[1] - v0.values[1] * v1.values[0];
+		res.values[0] = cos_theta;
+		res.values[1] = - sin_theta;
+		res.values[2] = 0.0;
+		res.values[3] = sin_theta;
+		res.values[4] = cos_theta;
+		for(int i = 5; i < 9; ++i) {
+			res.values[i] = 0.0;
+		}
+		return res;
+	}
+	
+	private static void curveFit(List<Trace> acce) {
+		final WeightedObservedPoints obs = new WeightedObservedPoints();
+		for(Trace trace: acce) {
+			double x = trace.values[0];
+			double y = trace.values[1];
+			obs.add(x, y);
+		}
+		// Instantiate a third-degree polynomial fitter.
+		final PolynomialCurveFitter fitter = PolynomialCurveFitter.create(1);
+		// Retrieve fitted parameters (coefficients of the polynomial function).
+		final double[] coeff = fitter.fit(obs.toList());
+		Log.log(coeff[0], coeff[1]);
+	}
+	
+	public static void getRotationMatrixFromVector(double[] R, double[] rotationVector) {
+
+        double q0;
+        double q1 = rotationVector[0];
+        double q2 = rotationVector[1];
+        double q3 = rotationVector[2];
+        q0 = 1 - q1*q1 - q2*q2 - q3*q3;
+        q0 = (q0 > 0) ? (double)Math.sqrt(q0) : 0;
+
+        double sq_q1 = 2 * q1 * q1;
+        double sq_q2 = 2 * q2 * q2;
+        double sq_q3 = 2 * q3 * q3;
+        double q1_q2 = 2 * q1 * q2;
+        double q3_q0 = 2 * q3 * q0;
+        double q1_q3 = 2 * q1 * q3;
+        double q2_q0 = 2 * q2 * q0;
+        double q2_q3 = 2 * q2 * q3;
+        double q1_q0 = 2 * q1 * q0;
+
+           
+        R[0] = 1 - sq_q2 - sq_q3;
+        R[1] = q1_q2 - q3_q0;
+        R[2] = q1_q3 + q2_q0;
+
+        R[3] = q1_q2 + q3_q0;
+        R[4] = 1 - sq_q1 - sq_q3;
+        R[5] = q2_q3 - q1_q0;
+
+        R[6] = q1_q3 - q2_q0;
+        R[7] = q2_q3 + q1_q0;
+        R[8] = 1 - sq_q1 - sq_q2;
+       
+    }
 	
 
 }
