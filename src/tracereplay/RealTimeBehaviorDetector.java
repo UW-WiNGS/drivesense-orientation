@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import utility.Constants;
 import utility.Log;
 import utility.Trace;
 
@@ -23,11 +24,11 @@ public class RealTimeBehaviorDetector {
 	private RotationMatrix rm = new RotationMatrix();
 	
 	
-	private Trace lastSmoothedAccelerometer = null;
-	private Trace curProjectedAccelerometer = null;
+	private Trace curSmoothedAccelerometer = null;
+	private Trace curSmoothedGyroscope = null;
 
-	static final int kWindowSize = 10;
-	static final double alpha = 0.15;
+	final int kWindowSize = 10;
+
 	
 	
 	public void processTrace(Trace trace) {
@@ -53,15 +54,6 @@ public class RealTimeBehaviorDetector {
 				return;
 			}
 			
-			if(lastSmoothedAccelerometer == null) {
-				lastSmoothedAccelerometer = new Trace(3);
-				lastSmoothedAccelerometer.copyTrace(trace);
-			} else {
-				for(int m = 0; m < 3; ++m) {
-					trace.values[m] = alpha * trace.values[m] + (1.0 - alpha) * lastSmoothedAccelerometer.values[m];
-					lastSmoothedAccelerometer.values[m] = trace.values[m];
-				}
-			}
 						
 			Trace ntr = rm.Rotate(trace);
 
@@ -76,14 +68,7 @@ public class RealTimeBehaviorDetector {
 					Log.log("rotation matrix is aligned");
 				}
 			}
-			if(rm.all_set == true || rm.aligned == true) {
-				curProjectedAccelerometer = new Trace(Trace.ACCELEROMETER, 3);
-				curProjectedAccelerometer = rm.Alignment(ntr);
-				projected_accelerometer.add(curProjectedAccelerometer);
-			} else {
-				curProjectedAccelerometer = ntr;
-			}
-			
+	
 			
 		} else if(type.equals(Trace.ROTATION_MATRIX)) {
 			window_rotation_matrix.add(trace);
@@ -119,5 +104,27 @@ public class RealTimeBehaviorDetector {
 		return true;
 	}
 	
-
+	
+	private Trace lowpassFilter(Trace last, Trace cur) {
+		final double alpha = Constants.kExponentialMovingAverageAlpha;
+		if(last == null) {
+			last = new Trace(3);
+			last.copyTrace(cur);
+		} else {
+			for(int j = 0; j < cur.dim; ++j) {
+				cur.values[j] = alpha * cur.values[j] + (1.0 - alpha) * last.values[j];
+			}
+		}
+		return cur;
+	}
+	
+	
+	private void onAccelerometerChanged(Trace accelerometer) {
+		curSmoothedAccelerometer = lowpassFilter(curSmoothedAccelerometer, accelerometer);
+		
+	}
+	
+	private void onGyroscopeChanged(Trace gyroscope) {
+		curSmoothedGyroscope = lowpassFilter(curSmoothedGyroscope, gyroscope);
+	}
 }

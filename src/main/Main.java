@@ -23,14 +23,15 @@ public class Main {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		start();
+		Main main = new Main();
+		main.start();
 	}
 	
 	
 	private static String input = "/home/lkang/Dropbox/projects/drivesense/data/lei_db/";
 	private static String output = "/home/lkang/Dropbox/projects/drivesense/data/lei_dat/";
 	
-	public static void start() {
+	public void start() {
 		List<String> files = DirectoryWalker.getFileNames(input);
 		for(String file: files) {
 			String name = file.substring(0, 13);
@@ -74,117 +75,7 @@ public class Main {
 		}
 	}
 	
-	public static void processTrip(String path, long start, String opath) {
-		List<Trace> speed = loadOBDSpeed(path, start);
-		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
-		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
-		List<Trace> rotation_matrix = SqliteAccess.loadSensorData(path, start, Trace.ROTATION_MATRIX);
-		List<Trace> gps = SqliteAccess.loadSensorData(path, start, Trace.GPS);
-		
-		/*
-		ReadWriteTrace.writeFile(speed, opath + "/speed.dat");
-		ReadWriteTrace.writeFile(accelerometer, opath + "/accelerometer.dat");
-		ReadWriteTrace.writeFile(gyroscope, opath + "/gyroscope.dat");
-		ReadWriteTrace.writeFile(rotation_matrix, opath + "/rotation_matrix.dat");
-		ReadWriteTrace.writeFile(gps, opath + "/gps.dat");
-		*/
-		
-		/*
-		List<List<Trace> > traces = new ArrayList<List<Trace> >();
-		traces.add(rotation_matrix);
-		traces.add(accelerometer);
-		List<Trace> projected_accelerometer = traceReplay(traces);
-		ReadWriteTrace.writeFile(projected_accelerometer, opath + "/projected_accelerometer.dat");
-		*/
-		
-		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer);
-		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
-		
-		
-		List<Trace> window_accelerometer = new LinkedList<Trace>();
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
-		RotationMatrix rm = new RotationMatrix();
-		final int kWindowSize = 10;
-		Trace rotation = null;
-		for(Trace trace: smoothed_accelerometer) {
-			window_accelerometer.add(trace);
-			if(window_accelerometer.size() > kWindowSize) {
-				boolean steady = detector.stopped(window_accelerometer);
-				if(steady && rm.rm_set == false) {
-					calculateGravity(window_accelerometer);
-					List<Trace> sub = PreProcess.extractSubList(rotation_matrix, window_accelerometer.get(0).time, window_accelerometer.get(kWindowSize - 1).time);
-					rotation = PreProcess.getAverage(sub);
-					if(rotation !=null) {
-						rm.rotation_matrix = rotation.values;
-						rm.setRotationMatrix(rotation);
-						rm.rm_set = true;
-						Log.log("rotation matrix is set");
-					}
-				}
-				window_accelerometer.remove(0);
-			}
-		}
-		List<Trace> rotated_gyroscope = new ArrayList<Trace>();
-		for(Trace trace: smoothed_gyroscope) {
-			Trace tTrace = rm.Rotate(trace);
-			rotated_gyroscope.add(tTrace);
-		}
-		
-		List<Trace> rotated_accelerometer = new ArrayList<Trace>();
-		for(Trace trace: smoothed_accelerometer) {
-			Trace tTrace = rm.Rotate(trace);
-			Trace gyro = PreProcess.getTraceAt(rotated_gyroscope, tTrace.time);
-			if(gyro == null) continue;
-			if(Math.abs(gyro.values[2]) > 0.05) continue;
-			rotated_accelerometer.add(tTrace);
-		}
-
-		
-		ReadWriteTrace.writeFile(rotated_accelerometer, opath + "/rotated_accelerometer.dat");
-		ReadWriteTrace.writeFile(rotated_gyroscope, opath + "/rotated_gyroscope.dat");
-
-		/*
-		double slope = rm.curveFit(rotated_accelerometer);
-		rm.setUnitVector(rotated_accelerometer, slope);
-		*/
-		TransformationHelper helper = new TransformationHelper();
-		List<Trace> projected_accelerometer = helper.transformByAccelerometer(smoothed_accelerometer, rotation);
-		List<Trace> projected_gyroscope = helper.transform(smoothed_gyroscope);
-				
-		
-		ReadWriteTrace.writeFile(projected_accelerometer, opath + "/projected_accelerometer.dat");
-		ReadWriteTrace.writeFile(projected_gyroscope, opath + "/projected_gyroscope.dat");
-
-		List<Trace> correlations = new ArrayList<Trace>();
-
-		List<Trace> training = new ArrayList<Trace>();
-		
-		int wnd = 10;
-		List<Trace> window = new LinkedList<Trace>();
-		for(int i = 0; i < rotated_accelerometer.size(); ++i) {
-			window.add(rotated_accelerometer.get(i));
-			if(window.size() >= wnd) {
-				window.remove(0);
-				Trace trace = new Trace(3);
-				trace.time = projected_accelerometer.get(i).time;
-				trace.values[0] = linear_correlation(window, 0, 1);
-				trace.values[1] = linear_correlation(window, 1, 2);
-				trace.values[2] = linear_correlation(window, 2, 0);		
-				correlations.add(trace);
-				
-				if(Math.abs(trace.values[0]) > 0.94 && trace.values[1] < 0.1 && trace.values[2] < 0.1) {
-					training.add(rotated_accelerometer.get(i));
-				}
-			}
-		}
-		ReadWriteTrace.writeFile(correlations, opath + "/correlations.dat");
-		ReadWriteTrace.writeFile(training, opath + "/training.dat");
-		
-	}
 	
-	
-	
-
 	public static double linear_correlation(List<Trace> input, int x, int y) {
 		double corr = 0.0;
 		int sz = input.size();
@@ -212,6 +103,7 @@ public class Main {
 		return corr;
 	}
 	
+	//important
 	public static List<Trace> traceReplay(List<List<Trace> > input) {
 		int num = input.size();
 		int index[] = new int[num];
@@ -278,8 +170,82 @@ public class Main {
 		}
 		return turnning;
 	}
+
+	public static void getRotationMatrixFromVector(double[] R, double[] rotationVector) {
+
+        double q0;
+        double q1 = rotationVector[0];
+        double q2 = rotationVector[1];
+        double q3 = rotationVector[2];
+        q0 = 1 - q1*q1 - q2*q2 - q3*q3;
+        q0 = (q0 > 0) ? (double)Math.sqrt(q0) : 0;
+
+        double sq_q1 = 2 * q1 * q1;
+        double sq_q2 = 2 * q2 * q2;
+        double sq_q3 = 2 * q3 * q3;
+        double q1_q2 = 2 * q1 * q2;
+        double q3_q0 = 2 * q3 * q0;
+        double q1_q3 = 2 * q1 * q3;
+        double q2_q0 = 2 * q2 * q0;
+        double q2_q3 = 2 * q2 * q3;
+        double q1_q0 = 2 * q1 * q0;           
+        R[0] = 1 - sq_q2 - sq_q3;
+        R[1] = q1_q2 - q3_q0;
+        R[2] = q1_q3 + q2_q0;
+
+        R[3] = q1_q2 + q3_q0;
+        R[4] = 1 - sq_q1 - sq_q3;
+        R[5] = q2_q3 - q1_q0;
+
+        R[6] = q1_q3 - q2_q0;
+        R[7] = q2_q3 + q1_q0;
+        R[8] = 1 - sq_q1 - sq_q2;   
+    }
 	
-	public static void flatRoadDetector(String path, long start, String opath) {
+	
+	private static final double NS2S = 1.0f / 1000000000.0f;
+	private final double[] deltaRotationVector = new double[4];
+	private double timestamp = 0;
+	public static final double EPSILON = 0.000000001f;
+	
+	public Trace onGyroscopeChanged(Trace gyro) {
+	  // This timestep's delta rotation to be multiplied by the current rotation
+	  // after computing it from the gyro sample data.
+		if (timestamp != 0) {
+			final double dT = (gyro.time - timestamp) * NS2S;
+			// Axis of the rotation sample, not normalized yet.
+			double axisX = gyro.values[0];
+			double axisY = gyro.values[1];
+			double axisZ = gyro.values[2];
+
+			// Calculate the angular speed of the sample
+			double omegaMagnitude = Math.sqrt(axisX*axisX + axisY*axisY + axisZ*axisZ);
+			
+			// Normalize the rotation vector if it's big enough to get the axis
+			// (that is, EPSILON should represent your maximum allowable margin of error)
+			if (omegaMagnitude > EPSILON) {
+				axisX /= omegaMagnitude;
+				axisY /= omegaMagnitude;
+				axisZ /= omegaMagnitude;
+			}
+			double thetaOverTwo = omegaMagnitude * dT / 2.0f;
+			double sinThetaOverTwo = Math.sin(thetaOverTwo);
+			double cosThetaOverTwo = Math.cos(thetaOverTwo);
+			deltaRotationVector[0] = sinThetaOverTwo * axisX;
+			deltaRotationVector[1] = sinThetaOverTwo * axisY;
+			deltaRotationVector[2] = sinThetaOverTwo * axisZ;
+			deltaRotationVector[3] = cosThetaOverTwo;
+		}
+		timestamp = gyro.time;
+		Trace tr = new Trace(9);
+		tr.time = gyro.time;
+		
+		Log.log(deltaRotationVector[2]);
+		
+		getRotationMatrixFromVector(tr.values, deltaRotationVector);
+		return tr;
+	}
+	public void flatRoadDetector(String path, long start, String opath) {
 		List<Trace> speed = PreProcess.interpolate(loadOBDSpeed(path, start), 1.0);
 		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
 		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
@@ -291,43 +257,6 @@ public class Main {
 		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
 		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix);
 
-		
-		int wnd = 10;
-		List<Trace> window_gyroscope = new LinkedList<Trace>();
-		List<Trace> calculated_gyroscope = new ArrayList<Trace>();
-		for(Trace gyro: smoothed_gyroscope) {
-			Trace trace = new Trace(4);
-			trace.time = gyro.time;
-			System.arraycopy(gyro.values, 0, trace.values, 0, 3);
-			window_gyroscope.add(trace);
-			boolean turnning = true;
-			if(window_gyroscope.size() > wnd) {
-				turnning = isTurning(window_gyroscope);
-				window_gyroscope.remove(0);
-			}
-			trace.values[3] = turnning == true? 1.0 : 0.0;
-			calculated_gyroscope.add(trace);
-		}
-		ReadWriteTrace.writeFile(calculated_gyroscope, opath + "/fr_calculated_gyroscope.dat");
-
-		
-		
-		List<Trace> calculated_accelerometer = new ArrayList<Trace>();
-		for(Trace acce: smoothed_accelerometer) {
-			Trace trace = new Trace(4);
-			trace.time = acce.time;	
-			System.arraycopy(acce.values, 0, trace.values, 0, 3);
-			double sum = 0.0;
-			for(int i = 0; i < 3; ++i) {
-				sum += Math.pow(acce.values[i], 2.0);
-			}
-			trace.values[3] = Math.sqrt(sum);
-			calculated_accelerometer.add(trace);
-		}
-		
-		
-		ReadWriteTrace.writeFile(calculated_accelerometer, opath + "/fr_calculated_accelerometer.dat");
-		
 		
 		List<Trace> subacce = PreProcess.extractSubList(smoothed_accelerometer, 130*1000, 200*1000);
 		List<Trace> subgyro = PreProcess.extractSubList(smoothed_gyroscope, 130*1000, 200*1000);
@@ -369,13 +298,11 @@ public class Main {
 		}
 		
 		List<Trace> projectedgyro = new ArrayList<Trace>();
-		for(Trace trace: smoothed_gyroscope) {
+		for(Trace trace: subgyro) {
 			Log.log(trace);
 			for(int i = 0; i < 3; ++i) {
 				trace.values[i] -= gyro_drift.values[i];
 			}
-			Log.log(trace);
-			
 			Trace rot = rotate(trace, rm.values);
 			Trace cur = rotate(rot, xyrm.values);
 			projectedgyro.add(cur);
@@ -392,36 +319,57 @@ public class Main {
 		ReadWriteTrace.writeFile(projectedgyro, opath + "/fr_projected_gyroscope.dat");
 		
 		
+		List<Trace> deltaRM = new ArrayList<Trace>();
+		List<Trace> accumulatedGyro = new ArrayList<Trace>();
+		Trace sum = new Trace(3);
+		for(Trace trace: projectedgyro) {
+			for(int i = 0; i < trace.dim; ++i) {
+				sum.values[i] += trace.values[i];
+				
+			}
+			Trace ntr = new Trace(3);
+			ntr.copyTrace(sum);
+			ntr.time = trace.time;
+			accumulatedGyro.add(ntr);
+		}
+		List<Trace> verticalAligned = new ArrayList<Trace>();
+		for(Trace trace: subprojected) {
+			long time = trace.time;
+			Trace delta = PreProcess.getTraceAt(deltaRM, time);
+			if(delta == null) continue;
+			Trace vrot = rotate(trace, delta.values);
+			verticalAligned.add(vrot);
+		}
+		ReadWriteTrace.writeFile(verticalAligned, opath + "/fr_valigned_accelerometer.dat");
+		ReadWriteTrace.writeFile(accumulatedGyro, opath + "/fr_accumulated_gyroscope.dat");
+
 		/*
-		
+		List<Trace> corr_gyro = calculateCorrelation(projectedgyro);
+		ReadWriteTrace.writeFile(corr_gyro, opath + "/fr_correlation_projected_gyro.dat");
+		*/
+	}
+	
+	private List<Trace> calculateCorrelation(List<Trace> traces) {
 		List<Trace> correlations = new ArrayList<Trace>();
-		List<Trace> training = new ArrayList<Trace>();
-		
-		int wnd = 10;
+		int wnd = 20;
 		List<Trace> window = new LinkedList<Trace>();
-		for(int i = 0; i < calculated_accelerometer.size(); ++i) {
+		for(int i = 0; i < traces.size(); ++i) {
 			Trace tr = new Trace(4);
-			tr.time = calculated_accelerometer.get(i).time;
-			System.arraycopy(calculated_accelerometer.get(i).values, 0, tr.values, 0, 3);
+			tr.time = traces.get(i).time;
+			System.arraycopy(traces.get(i).values, 0, tr.values, 0, 3);
 			tr.values[3] = Math.sqrt(Math.pow(tr.values[0], tr.values[1]));
 			window.add(tr);
 			if(window.size() >= wnd) {
 				window.remove(0);
 				Trace trace = new Trace(3);
-				trace.time = calculated_accelerometer.get(i).time;
+				trace.time = traces.get(i).time;
 				trace.values[0] = linear_correlation(window, 0, 1);
 				trace.values[1] = linear_correlation(window, 1, 2);
-				trace.values[2] = linear_correlation(window, 3, 2);		
+				trace.values[2] = linear_correlation(window, 0, 2);		
 				correlations.add(trace);
-				
-				if(Math.abs(trace.values[0]) > 0.94 && trace.values[1] < 0.1 && trace.values[2] < 0.1) {
-					training.add(calculated_accelerometer.get(i));
-				}
 			}
 		}
-		ReadWriteTrace.writeFile(correlations, opath + "/fr_correlations.dat");
-		ReadWriteTrace.writeFile(training, opath + "/fr_training.dat");
-		*/
+		return correlations;
 	}
 	
 	private static Trace getUnitVector(Trace input) {
@@ -459,40 +407,8 @@ public class Main {
 		final double[] coeff = fitter.fit(obs.toList());
 		Log.log(coeff[0], coeff[1]);
 	}
-	
-	public static void getRotationMatrixFromVector(double[] R, double[] rotationVector) {
 
-        double q0;
-        double q1 = rotationVector[0];
-        double q2 = rotationVector[1];
-        double q3 = rotationVector[2];
-        q0 = 1 - q1*q1 - q2*q2 - q3*q3;
-        q0 = (q0 > 0) ? (double)Math.sqrt(q0) : 0;
-
-        double sq_q1 = 2 * q1 * q1;
-        double sq_q2 = 2 * q2 * q2;
-        double sq_q3 = 2 * q3 * q3;
-        double q1_q2 = 2 * q1 * q2;
-        double q3_q0 = 2 * q3 * q0;
-        double q1_q3 = 2 * q1 * q3;
-        double q2_q0 = 2 * q2 * q0;
-        double q2_q3 = 2 * q2 * q3;
-        double q1_q0 = 2 * q1 * q0;
-
-           
-        R[0] = 1 - sq_q2 - sq_q3;
-        R[1] = q1_q2 - q3_q0;
-        R[2] = q1_q3 + q2_q0;
-
-        R[3] = q1_q2 + q3_q0;
-        R[4] = 1 - sq_q1 - sq_q3;
-        R[5] = q2_q3 - q1_q0;
-
-        R[6] = q1_q3 - q2_q0;
-        R[7] = q2_q3 + q1_q0;
-        R[8] = 1 - sq_q1 - sq_q2;
-       
-    }
+	 
 	
 
 }

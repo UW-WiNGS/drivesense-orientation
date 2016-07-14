@@ -194,5 +194,4 @@ public class RotationMatrix {
 	        }
 	        return new PairDouble(0, 0);
 	    }
-
 }
