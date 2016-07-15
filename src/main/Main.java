@@ -388,9 +388,10 @@ public class Main {
 		res.values[2] = 0.0;
 		res.values[3] = sin_theta;
 		res.values[4] = cos_theta;
-		for(int i = 5; i < 9; ++i) {
+		for(int i = 5; i < 8; ++i) {
 			res.values[i] = 0.0;
 		}
+		res.values[8] = 1.0;
 		return res;
 	}
 	
