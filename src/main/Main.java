@@ -409,7 +409,101 @@ public class Main {
 		Log.log(coeff[0], coeff[1]);
 	}
 
-	 
+
+	/*
+	public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp)
+	{
+		// don't start until first accelerometer/magnetometer orientation has
+		// been acquired
+		if (!hasInitialOrientation)
+		{
+			return;
+		}
+
+		// This timestep's delta rotation to be multiplied by the current
+		// rotation after computing it from the gyro sample data.
+		if (timestampOld != 0 && stateInitialized)
+		{
+			final float dT = (timestamp - timestampOld) * NS2S;
+
+			// Axis of the rotation sample, not normalized yet.
+			float axisX = gyroscope[0];
+			float axisY = gyroscope[1];
+			float axisZ = gyroscope[2];
+
+			// Calculate the angular speed of the sample
+			float omegaMagnitude = (float) Math.sqrt(axisX * axisX + axisY
+					* axisY + axisZ * axisZ);
+
+			// Normalize the rotation vector if it's big enough to get the axis
+			if (omegaMagnitude > EPSILON)
+			{
+				axisX /= omegaMagnitude;
+				axisY /= omegaMagnitude;
+				axisZ /= omegaMagnitude;
+			}
+
+			// Integrate around this axis with the angular speed by the timestep
+			// in order to get a delta rotation from this sample over the
+			// timestep. We will convert this axis-angle representation of the
+			// delta rotation into a quaternion before turning it into the
+			// rotation matrix.
+			float thetaOverTwo = omegaMagnitude * dT / 2.0f;
+
+			float sinThetaOverTwo = (float) Math.sin(thetaOverTwo);
+			float cosThetaOverTwo = (float) Math.cos(thetaOverTwo);
+
+			deltaRotationVector[0] = sinThetaOverTwo * axisX;
+			deltaRotationVector[1] = sinThetaOverTwo * axisY;
+			deltaRotationVector[2] = sinThetaOverTwo * axisZ;
+			deltaRotationVector[3] = cosThetaOverTwo;
+
+			SensorManager.getRotationMatrixFromVector(deltaRotationMatrix,
+					deltaRotationVector);
+
+			currentRotationMatrix = matrixMultiplication(currentRotationMatrix,
+					deltaRotationMatrix);
+
+			SensorManager.getOrientation(currentRotationMatrix,
+					gyroscopeOrientation);
+
+			// values[0]: azimuth, rotation around the Z axis.
+			// values[1]: pitch, rotation around the X axis.
+			// values[2]: roll, rotation around the Y axis.
+
+			// Find the gravity component of the X-axis
+			// = g*-cos(pitch)*sin(roll);
+			components[0] = (float) (SensorManager.GRAVITY_EARTH
+					* -Math.cos(gyroscopeOrientation[1]) * Math
+					.sin(gyroscopeOrientation[2]));
+
+			// Find the gravity component of the Y-axis
+			// = g*-sin(pitch);
+			components[1] = (float) (SensorManager.GRAVITY_EARTH * -Math
+					.sin(gyroscopeOrientation[1]));
+
+			// Find the gravity component of the Z-axis
+			// = g*cos(pitch)*cos(roll);
+			components[2] = (float) (SensorManager.GRAVITY_EARTH
+					* Math.cos(gyroscopeOrientation[1]) * Math
+					.cos(gyroscopeOrientation[2]));
+
+			// Subtract the gravity component of the signal
+			// from the input acceleration signal to get the
+			// tilt compensated output.
+			linearAcceleration[0] = (this.acceleration[0] - components[0]);
+			linearAcceleration[1] = (this.acceleration[1] - components[1]);
+			linearAcceleration[2] = (this.acceleration[2] - components[2]);
+
+			linearAcceleration = mfLinearAcceleration
+					.filterFloat(linearAcceleration);
+		}
+
+		timestampOld = timestamp;
+
+		notifyLinearAccelerationObserver();
+	}
+	*/
 	
 
 }
