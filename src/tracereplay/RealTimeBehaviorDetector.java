@@ -19,7 +19,6 @@ public class RealTimeBehaviorDetector {
 
 	private List<Trace> window_accelerometer = new LinkedList<Trace>();
 	private List<Trace> window_rotation_matrix = new LinkedList<Trace>();
-	private List<Trace> fittingpoints = new ArrayList<Trace>();
 
 	private RotationMatrix rm = new RotationMatrix();
 	
@@ -34,42 +33,9 @@ public class RealTimeBehaviorDetector {
 	public void processTrace(Trace trace) {
 		String type = trace.type;
 		if(type.equals(Trace.ACCELEROMETER)) {
-						
-			window_accelerometer.add(trace);
-			if(window_accelerometer.size() > kWindowSize) {
-				boolean steady = stopped(window_accelerometer);
-				if(steady && rm.rm_set == false) {
-					List<Trace> sub = PreProcess.extractSubList(window_rotation_matrix, window_accelerometer.get(0).time, window_accelerometer.get(kWindowSize - 1).time);
-					Trace tmprm = PreProcess.getAverage(sub);
-					if(tmprm !=null) {
-						rm.rotation_matrix = tmprm.values;
-						rm.setRotationMatrix(tmprm);
-						rm.rm_set = true;
-						Log.log("rotation matrix is set");
-					}
-				}
-				window_accelerometer.remove(0);
-			}
-			if(rm.rm_set == false) {
-				return;
-			}
-			
-						
-			Trace ntr = rm.Rotate(trace);
-
-			if(Math.sqrt(Math.pow(ntr.values[0], 2.0) + Math.pow(ntr.values[1], 2.0)) > 0.05 && rm.aligned == false) {
-				if(fittingpoints.size() < 400) {
-				   fittingpoints.add(ntr);
-				} else {
-					double slope = rm.curveFit(fittingpoints);
-					rm.setUnitVector(fittingpoints, slope);
-					
-					rm.aligned = true;
-					Log.log("rotation matrix is aligned");
-				}
-			}
-	
-			
+			onAccelerometerChanged(trace);
+		} else if (type.equals(Trace.GYROSCOPE)) {
+			onGyroscopeChanged(trace);
 		} else if(type.equals(Trace.ROTATION_MATRIX)) {
 			window_rotation_matrix.add(trace);
 			if(window_rotation_matrix.size() > kWindowSize) {
@@ -121,7 +87,21 @@ public class RealTimeBehaviorDetector {
 	
 	private void onAccelerometerChanged(Trace accelerometer) {
 		curSmoothedAccelerometer = lowpassFilter(curSmoothedAccelerometer, accelerometer);
-		
+		window_accelerometer.add(curSmoothedAccelerometer);
+		if(window_accelerometer.size() > kWindowSize) {
+			boolean steady = stopped(window_accelerometer);
+			if(steady && rm.rm_set == false) {
+				List<Trace> sub = PreProcess.extractSubList(window_rotation_matrix, window_accelerometer.get(0).time, window_accelerometer.get(kWindowSize - 1).time);
+				Trace tmprm = PreProcess.getAverage(sub);
+				if(tmprm !=null) {
+					rm.rotation_matrix = tmprm.values;
+					rm.setRotationMatrix(tmprm);
+					rm.rm_set = true;
+					Log.log("rotation matrix is set");
+				}
+			}
+			window_accelerometer.remove(0);
+		}
 	}
 	
 	private void onGyroscopeChanged(Trace gyroscope) {
