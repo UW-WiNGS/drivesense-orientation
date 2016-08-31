@@ -19,9 +19,10 @@ public class Constants {
 	public static final double kMPGToKPL = 0.425143707;
 	/**/
     public static final String kInputSeperator = "\t";
-	public static final String kOutputSeperator = ",";
+	public static final String kOutputSeperator = "\t";
     public static final String slash = "/";
     
+
     public static final double kAirFuelRatio = 14.67;
     public static final double kMAFtoAFR = 3600.0/(kAirFuelRatio * 6.17 * 454);
     
@@ -30,14 +31,14 @@ public class Constants {
     //refers one sample per second
     public static final double kSampleRate = 1.0;
     
-	public static final double kExponentialMovingAverageAlpha = 0.3;//0.3;
+	public static final double kExponentialMovingAverageAlpha = 0.4;//0.3;
     /**
      * works for Lei only
      */
     public static final String kHome = System.getProperty("user.home");
-	public static final String dbPath = Constants.kHome + "/Dropbox/projects/obd/data/rawdb/";
-	public static final String datPath = Constants.kHome + "/Dropbox/projects/obd/data/rawdat/";
-	public static final String outputPath = Constants.kHome + "/Dropbox/projects/obd/data/workingset/";
+	public static final String dbPath = Constants.kHome + "/projects/sensorgps/rawdb/";
+	public static final String datPath = Constants.kHome + "/projects/sensorgps/rawdat/";
+	public static final String outputPath = Constants.kHome + "/projects/sensorgps/workingset/";
 	
     
     /*====================database related======================================================*/

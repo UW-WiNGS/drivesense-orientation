@@ -2,79 +2,10 @@ package utility;
 
 import java.util.List;
 
+import org.apache.commons.math3.fitting.PolynomialCurveFitter;
+import org.apache.commons.math3.fitting.WeightedObservedPoints;
+
 public class Formulas {
-
-	public static double vectorLength(Trace trace) {
-		return vectorLength(trace, trace.dim);
-	}
-	/**
-	 * The name vectorSum is very very confusing!!!!!
-	 * It is actually the length of a vector!
-	 * @param trace
-	 * @param dim
-	 * @return
-	 */
-
-	public static double vectorLength(Trace trace, int dim) {
-		double sum = 0.0;
-		for(int i = 0; i < dim; ++i) {
-			sum += Math.pow(trace.values[i], 2);
-		}
-		double res = Math.sqrt(sum);
-		return res;
-	}
-	
-	public static double[] vectorSum(Trace trace1, Trace trace2)
-	{
-		if(trace1.dim != trace2.dim)
-		{
-			throw new IllegalArgumentException("The dimension of two trace values must be the same");
-		}
-		double[] value1 = trace1.values;
-		double[] value2 = trace2.values;
-		double[] sum = new double[trace1.dim];
-		for(int i = 0; i < trace1.dim; i++)
-		{
-			sum[i] = value1[i] + value2[i];
-		}
-		return sum;
-	}
-	
-	/**
-	 * Pure mathematical equations. Get the sum of distance squared from the points to the line.
-	 * @param slope
-	 * @param sum_x2
-	 * @param sum_y2
-	 * @param sum_xy
-	 * @return
-	 */
-	
-	public static double DistanceSquare(double slope, double sum_x2, double sum_y2, double sum_xy) {
-		double res = (sum_y2 - 2 * slope * sum_xy + Math.pow(slope, 2) * sum_x2) / (Math.pow(slope, 2) + 1);
-		return res;
-	}
-
-	/**
-	 * Find the unit vector.
-	 * @param v
-	 * @return
-	 */
-	public static PairDouble UnitVector(PairDouble v) {
-		double length = Math.sqrt(Math.pow(v.y, 2) + Math.pow(v.x, 2));
-		if (length != 0)
-		{
-			return new PairDouble(v.x/length, v.y/length);
-		}
-		return new PairDouble(0, 0);
-	}
-
-	public static double DotProduct(PairDouble v, PairDouble u) {
-		return v.x * u.x + v.y * u.y;
-	}
-	
-	public static double DotProduct(Trace x, Trace y) {
-		return x.values[0] * y.values[0] + x.values[1] * y.values[1];
-	}
 
 
 	/*0 to 360
@@ -168,6 +99,49 @@ public class Formulas {
 	}
 	
 	
+	public static Trace rotate(Trace raw_tr, double[] rM) {
+		Trace calculated_tr = new Trace();
+		calculated_tr.time = raw_tr.time;
+		double x, y, z;
+		x = raw_tr.values[0];
+		y = raw_tr.values[1];
+		z = raw_tr.values[2];
+
+		calculated_tr.values[0] = x * rM[0] + y * rM[1] + z * rM[2];
+		calculated_tr.values[1] = x * rM[3] + y * rM[4] + z * rM[5];
+		calculated_tr.values[2] = x * rM[6] + y * rM[7] + z * rM[8];
+
+		return calculated_tr;
+	}
+
+	
+	public static double linear_correlation(List<Trace> input, int x, int y) {
+		double corr = 0.0;
+		int sz = input.size();
+		double average_x = 0.0;
+		double average_y = 0.0;
+		for(int i = 0 ; i < sz; ++i) {
+			average_x += input.get(i).values[x];
+			average_y += input.get(i).values[y];
+		}
+		average_x /= sz;
+		average_y /= sz;
+		
+		double upper = 0.0;
+		double m_x = 0.0, m_y = 0.0;
+		for(int i = 0 ; i < sz; ++i) {
+			double tmpx = input.get(i).values[x];
+			double tmpy = input.get(i).values[y];
+			upper += (tmpx - average_x) * (tmpy - average_y);
+			m_x += (tmpx - average_x) * (tmpx - average_x);
+			m_y += (tmpy - average_y) * (tmpy - average_y);
+		}
+		if(m_x*m_y ==0 || m_x*m_y != m_x*m_y) corr = 1;
+		else corr = upper / Math.sqrt(m_x * m_y);
+		
+		return corr;
+	}
+	
 	public static double linear_correlation(double [] x, double [] y) {
 		double corr = 0.0;
 		int sz = x.length;
@@ -193,4 +167,61 @@ public class Formulas {
 		return corr;
 	}
 	
+	public static double[] curveFit(List<Trace> acce, int i, int j) {
+		final WeightedObservedPoints obs = new WeightedObservedPoints();
+		for(Trace trace: acce) {
+			double x = trace.values[i];
+			double y = trace.values[j];
+			obs.add(x, y);
+		}
+		// Instantiate a third-degree polynomial fitter.
+		final PolynomialCurveFitter fitter = PolynomialCurveFitter.create(1);
+		// Retrieve fitted parameters (coefficients of the polynomial function).
+		final double[] coeff = fitter.fit(obs.toList());
+		return coeff;
+	}
+	
+	public static Trace getUnitVector(Trace input) {
+		Trace res = new Trace(3);
+		double sum = Math.sqrt(Math.pow(input.values[0], 2.0) + Math.pow(input.values[1], 2.0));
+		res.setValues(input.values[0]/sum, input.values[1]/sum, 0.0);
+		return res;
+	}
+
+	public static Trace rotationMatrixBetweenHorizontalVectors(Trace v0, Trace v1) {
+		Trace res = new Trace(9);
+		double cos_theta = v0.values[0] * v1.values[0] + v0.values[1] * v1.values[1];
+		double sin_theta = v0.values[0] * v1.values[1] - v0.values[1] * v1.values[0];
+		res.values[0] = cos_theta;
+		res.values[1] = - sin_theta;
+		res.values[2] = 0.0;
+		res.values[3] = sin_theta;
+		res.values[4] = cos_theta;
+		for(int i = 5; i < 8; ++i) {
+			res.values[i] = 0.0;
+		}
+		res.values[8] = 1.0;
+		return res;
+	}
+	
+	/**
+	 * TODO --- test
+	 * @param v0
+	 * @param v1
+	 * @return
+	 */
+	public static Trace rotationMatrixBetweenVerticalVectors(Trace v0, Trace v1) {
+		Trace res = new Trace(9);
+		double cos_theta = v0.values[1] * v1.values[1] + v0.values[2] * v1.values[2];
+		double sin_theta = v0.values[1] * v1.values[2] - v0.values[2] * v1.values[1];
+		for(int i = 0; i < 9; ++i) {
+			res.values[i] = 0.0;
+		}
+		res.values[0] = 1.0;
+		res.values[4] = cos_theta;
+		res.values[5] = - sin_theta;
+		res.values[7] = sin_theta;
+		res.values[8] = cos_theta;
+		return res;
+	}
 }
