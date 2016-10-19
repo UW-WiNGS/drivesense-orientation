@@ -20,7 +20,7 @@ public class SlopeAwareAlignment {
 	private static String input = "/home/lkang/Dropbox/projects/drivesense/data/lei_db/";
 	private static String output = "/home/lkang/Dropbox/projects/drivesense/data/lei_dat/";
 	
-	public void start() {
+	public static void start() {
 		List<String> files = DirectoryWalker.getFileNames(input);
 		for(String file: files) {
 			String name = file.substring(0, 13);
@@ -35,7 +35,7 @@ public class SlopeAwareAlignment {
 			DirectoryWalker.createFolder(opath);
 			//flatRoadDetector(ipath, start, opath);
 			
-			test(ipath, start, opath);
+			//test(ipath, start, opath);
 			break;
 		}
 	}

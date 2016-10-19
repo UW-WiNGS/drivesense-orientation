@@ -22,49 +22,11 @@ public class Main {
 	public static void main(String[] args) {
 		//System.out.println("Hello DriveSense-Orientation!");
 		
-		GPSEvaluation.start();
+		//GPSEvaluation.start();
+		
+		SlopeAwareAlignment.start();
 	}
 	
-	
-	
-	public static void loadSensorData() {
-		List<String> rawdat = DirectoryWalker.recursive(Constants.datPath);
-		List<String> rawdb = DirectoryWalker.recursive(Constants.dbPath);
-		
-		Map<String, String> path = new HashMap<String, String>();
-		for(String file: rawdat) {
-			int sz = file.length();
-			String[] parts = file.split("/");
-			int len = parts.length;
-			String name = parts[len - 2].concat(".db");
-			String filename = parts[len - 1];
-			int index = sz - filename.length();
-			String prefix = file.substring(0, index);
-			if(!path.containsKey(name)) {
-				path.put(name, prefix);
-			}
-		}
-		
-		for(String file: rawdb) {
-			Log.log(file);
-			String[] parts = file.split("/");
-			int len = parts.length;
-			String name = parts[len - 1];
-			long start = 0;
-			try {
-				start = Long.parseLong(parts[len - 1].substring(0, 13));
-			} catch (Exception e) {
-				continue;
-			}
-			if(!path.containsKey(name)) continue;
-			List<Trace> accelerometer = SqliteAccess.loadSensorData(file, start, Trace.ACCELEROMETER);
-			ReadWriteTrace.writeFile(accelerometer, path.get(name).concat("accelerometer.dat"));
-			List<Trace> gyroscope = SqliteAccess.loadSensorData(file, start, Trace.GYROSCOPE);
-			ReadWriteTrace.writeFile(gyroscope, path.get(name).concat("gyroscope.dat"));
-			List<Trace> rotation_matrix = SqliteAccess.loadSensorData(file, start, Trace.ROTATION_MATRIX);
-			ReadWriteTrace.writeFile(rotation_matrix, path.get(name).concat("rotation_matrix.dat"));
-		}
-	}
 	
 	public static void realTimeTest() {
 		List<String> rawdb = DirectoryWalker.recursive(Constants.dbPath);

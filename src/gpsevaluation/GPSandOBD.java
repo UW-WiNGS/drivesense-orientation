@@ -1,4 +1,4 @@
-package main;
+package gpsevaluation;
 
 import io.DirectoryWalker;
 import io.ReadWriteTrace;
@@ -13,7 +13,7 @@ import utility.PreProcess;
 import utility.Trace;
 import utility.Trip;
 
-public class GPSEvaluation {
+public class GPSandOBD {
 	
 	private static String TAG = "GPSEvaluation";
 	
