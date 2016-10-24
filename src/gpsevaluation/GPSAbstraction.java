@@ -1,4 +1,4 @@
-package gps;
+package gpsevaluation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -116,69 +116,6 @@ public class GPSAbstraction {
 		return dist * Constants.kMeterToMile;
 	}
 	
-	/**
-	 * Return the average speed between two GPS points
-	 * @param from from this data point
-	 * @param to to next data point
-	 * @return average speed between these two points
-	 */
-	
-	public static double averageSpeed(Trace from, Trace to)
-	{
-		double speed = 0.0;
-		double meters = distance(from, to);
-		speed = (meters * Constants.kMeterToMile)/((to.time - from.time)/(60.0*60.0*1000.0)); //mile per hour
-		
-		//speed = meters/((to.time - from.time) / 1000.0);// m/s
-		
-		return speed;
-	}
-
-
-	
-	public static List<Location> removeStopLocations(List<Location> locations) {
-	 
-		List<Location> res = new ArrayList<Location>();
-		int sz = locations.size();
-		for(int i = 0; i < sz; ++i) {
-			Location loc = new Location();
-			loc = locations.get(i);
-			if(loc.speed==0) {
-				continue;
-			} else {
-				res.add(loc);
-			}
-		}
-		return res;
-	}
-	
-
-	/**
-	 * 
-	 * @param gps
-	 * @return
-	 */
-	public static List<Location> getLocations(List<Trace> gps) {
-		List<Location> res = new ArrayList<Location>();
-
-		int sz = gps.size();
-		int len = res.size();
-		for(int i = 0; i < sz - 1; ++i) {
-			Location loc = new Location();
-			//loc.getLocation(gps.get(i), gps.get(i+1));
-			loc.calculateLocation(gps, i);
-			res.add(loc);
-		}
-		for(int i = 0; i < res.size() - 1; ++i) {
-			Location cur = res.get(i);
-			Location next = res.get(i + 1);
-			cur.turn = (int)Formulas.degreeDifference(cur.direction, next.direction);
-			res.set(i, cur);
-		}
-		
-		return res;
-	}
-	
 
 	/**
 	 * 
@@ -257,35 +194,51 @@ public class GPSAbstraction {
 		}
 		return res;
 	}
-	/*
-	 * Give a list of locations and start and end time,
-	 * get the average speed in mph
-	 * 
+
+	
+	/**
+	 * assume that the difference between OBD speed and gps is within 10 seconds
+	 * @param speed
+	 * @param gps: 
+	 * @param initshift: the initial time difference between gps and obd speed
+	 * @return -1 on failure
 	 */
-	public static double averageSpeed (List<Trace> gps, long start, long end) {
-		double speed = 0.0;
-		double meters = 0.0;
-		List<Trace> sub = (List<Trace>) PreProcess.extractSubList(gps, start, end);
-		int sz = sub.size();
-		for(int i = 0; i < sz - 1; ++i) {
-			meters += distance(sub.get(i), sub.get(i+1));
+	public static long sychronization(List<Trace> speed, List<Trace> gps) {
+		if(gps.size() < 10) {
+			return -1;
 		}
-		// m/s
-		double seconds = (end - start) / 1000.0;
-		
-		speed = (meters * Constants.kMeterToMile)/(seconds/(60.0*60.0));
-		return speed;
+		Trace first = gps.get(0);
+		Trace last = gps.get(gps.size() - 1);
+		if(GPSAbstraction.distance(first, last) < 100) {
+			return -1;
+		}
+		double rate = 2.0;
+		List<Trace> spds = PreProcess.interpolate(speed, rate);
+		final long diff = -100000;
+		long desireshift = 0;
+		double minerr = Double.MAX_VALUE;
+		for(long shift = diff; shift <= Math.abs(diff); shift += 250) {
+			double sumabserr = 0.0;
+			double sumerr = 0.0;
+			for(int i = 0; i < gps.size() - 1; ++i) {
+				Trace cur = gps.get(i);
+				Trace next = gps.get(i + 1);
+				long time = cur.time + shift;
+				double speedinmps = GPSAbstraction.distance(cur, next)/((next.time - cur.time)/1000.0);
+				Trace spd = PreProcess.getTraceAt(spds, time);
+				double err = speedinmps;
+				if(spd!=null) {
+					err = spd.values[0] * Constants.kKmPHToMeterPS - speedinmps;
+				}
+				sumerr += err;
+				sumabserr += Math.abs(err);
+				
+			}
+			if(sumabserr < minerr) {
+				minerr = sumabserr;
+				desireshift = shift;
+			}
+		}
+		return desireshift;
 	}
-
-	public static double maxSpeed (List<Trace> gps, long start, long end) {
-		double speed = 0.0;
-		List<Trace> sub = (List<Trace>) PreProcess.extractSubList(gps, start, end);
-		int sz = sub.size();
-		for(int i = 0; i < sz - 1; ++i) {
-			speed = Math.max(speed, averageSpeed(sub.get(i), sub.get(i+1)));
-		}
-
-		return speed;
-	}	
-
 }

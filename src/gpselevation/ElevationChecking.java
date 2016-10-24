@@ -1,7 +1,6 @@
 package gpselevation;
 
-import gps.GPSOBDSychronization;
-
+import gpsevaluation.GPSAbstraction;
 import io.DirectoryWalker;
 import io.ReadWriteTrace;
 
@@ -47,7 +46,7 @@ public class ElevationChecking {
 
 		if(!gps.isEmpty()){
 			Trip tmp = new Trip();
-			long time = GPSOBDSychronization.sychronization(speed, gps);
+			long time = GPSAbstraction.sychronization(speed, gps);
 //			long time = (long)500;
 //			gps_check.addAll(elevationCheck(gps, gps_db, gps_elevDB, Constants.kTimeShiftLei));
 			gps_check.addAll(elevationCheck(gps, gps_db, gps_elevDB, time));

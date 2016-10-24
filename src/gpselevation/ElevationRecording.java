@@ -1,6 +1,6 @@
 package gpselevation;
 
-import gps.GPSAbstraction;
+import gpsevaluation.GPSAbstraction;
 
 import io.DirectoryWalker;
 import io.ReadWriteTrace;
