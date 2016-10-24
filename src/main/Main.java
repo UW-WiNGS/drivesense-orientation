@@ -1,5 +1,6 @@
 package main;
 
+import gpsevaluation.GPSDirection;
 import io.DirectoryWalker;
 import io.ReadWriteTrace;
 import io.SqliteAccess;
@@ -9,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import tracereplay.RealTimeTiltCalculation;
 import utility.Constants;
 import utility.Log;
 import utility.Trace;
@@ -24,7 +26,9 @@ public class Main {
 		
 		//GPSEvaluation.start();
 		
-		SlopeAwareAlignment.start();
+		//SlopeAwareAlignment.start();
+		
+		GPSDirection.start();
 	}
 	
 	

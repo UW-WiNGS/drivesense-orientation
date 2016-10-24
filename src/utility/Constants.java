@@ -12,6 +12,7 @@ public class Constants {
 	public static final double kMeterPSToMilePH = 2.23694;
 	public static final double kKmPHToMPH = 0.621371;
 	public static final double kKmPHToMeterPS = 0.277778;
+	public static final double kRadianToDegree = 57.2958;
 	
 	public static final double kGPSMinimumDistance = 3; /*m*/
 

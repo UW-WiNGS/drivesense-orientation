@@ -67,6 +67,9 @@ public class Trip {
 		
 		path = folder;
 		speed_ = ReadWriteTrace.readFile(folder.concat("speed.dat"), 1);
+		for(Trace trace: speed_) {
+			trace.type = Trace.SPEED;
+		}
 		/*
 		maf_ = ReadWriteTrace.readFile(folder.concat("maf.dat"), 1);
 		fl_ = ReadWriteTrace.readFile(folder.concat("fuellevel.dat"), 1);
@@ -103,10 +106,24 @@ public class Trip {
 	public void readSensorDataFromFolder(String folder) throws Exception {
 		gps_ = ReadWriteTrace.readFile(folder.concat("gps.dat"), 2);
 		gps_elevation_ = ReadWriteTrace.readFile(folder.concat("gps_sychronized.dat"), 4);
+		for(Trace trace: gps_elevation_) {
+			trace.type = Trace.GPS;
+		}
 		if(false == Trip.nosensor_) {
 			accelerometer_ = ReadWriteTrace.readFile(folder.concat("accelerometer.dat"), 3);
 			gyroscope_ = ReadWriteTrace.readFile(folder.concat("gyroscope.dat"), 3);
 			rotation_matrix_ = ReadWriteTrace.readFile(folder.concat("rotation_matrix.dat"), 9);
+			
+			for(Trace trace: accelerometer_) {
+				trace.type = Trace.ACCELEROMETER;
+			}
+			for(Trace trace: gyroscope_) {
+				trace.type = Trace.GYROSCOPE;
+			}
+			for(Trace trace: rotation_matrix_) {
+				trace.type = Trace.ROTATION_MATRIX;
+			}
+			
 		}
 	}
 	
