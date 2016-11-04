@@ -11,6 +11,7 @@ import utility.Trace;
 
 public class GPSAbstraction {
 	
+	public static final String TAG = "GPSAbstraction";
 	public static final double degreeError = 20;
 	
 
@@ -47,6 +48,20 @@ public class GPSAbstraction {
 		return res * Constants.kEarthRadius;
 	}
 	
+	public static Trace directionVector(Trace gps0, Trace gps1) {
+		double lat1 = Math.toRadians(gps0.values[0]);
+		double lon1 = Math.toRadians(gps0.values[1]);
+		double lat2 = Math.toRadians(gps1.values[0]);
+		double lon2 = Math.toRadians(gps1.values[1]);
+
+		double y = Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(lon2-lon1);
+		double x = Math.sin(lon2 - lon1)*Math.cos(lat2);
+		
+		Trace res = new Trace(3);
+		double sum = Math.sqrt(Math.pow(x, 2.0) + Math.pow(y, 2.0));
+		res.setValues(x/sum, y/sum, 0.0);
+		return res;
+	}
 	
 	/**
 	 * 0 for East
@@ -65,8 +80,8 @@ public class GPSAbstraction {
 		double res = Math.atan2(y, x);
 		//atan2(cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1), sin(lon2-lon1)*cos(lat2))
 		double degree = Math.toDegrees(res);
-		if(degree < 0.0) degree+=360.0;
 		
+		if(degree < 0.0) degree+=360.0;
 		if(degree >= 360.0 || degree < 0.0) {
 			Log.error("direction error:", degree);
 		}
@@ -82,24 +97,26 @@ public class GPSAbstraction {
 	 */
 	public static double turnAngle(double degree1, double degree2) {
 		assert degree1 >= 0 && degree1 < 360 && degree2 >= 0 && degree2 < 360;
-		double turn = 0.0;
+		
+		//vector way
 		double x1 = Math.cos(Math.toRadians(degree1));
 		double y1 = Math.sin(Math.toRadians(degree1));
 		double x2 = Math.cos(Math.toRadians(degree2));
 		double y2 = Math.sin(Math.toRadians(degree2));
 		
-		turn = degree1 - degree2;
-		turn = Math.abs(turn);
-		if (turn >= 180 && turn <= 360) {
-			turn = 360 - turn;
-		}
+		double angle = Math.atan2(y2, x2) - Math.atan2(y1, x1);
+		//Log.log(TAG, angle, Math.toDegrees(angle));
 		
-		double angle = x1*y2 - x2*y1;
-
-		if(angle < 0){//counter clockwise
-			turn = -1*turn; //right turn
+		//simple math way
+		double res = degree2 - degree1;
+		if(res > 180) {
+			res -= 360;
+		} else if(res < -180) {
+			res += 360;
+		} else {
+			
 		}
-		return turn;
+		return res;
 	}
 	/**
 	 * 

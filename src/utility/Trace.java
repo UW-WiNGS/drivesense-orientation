@@ -84,9 +84,8 @@ public class Trace {
 	public String toString() {
 		String res = new String("");
 		res = res.concat(String.valueOf(time));
-		DecimalFormat df2 = new DecimalFormat("#.##");
 		for(int i = 0; i < dim; ++i) {
-			res = res.concat(Constants.kOutputSeperator + String.valueOf(df2.format(values[i])));
+			res = res.concat(Constants.kOutputSeperator + String.valueOf(values[i]));
 		}
 		return res;
 	}

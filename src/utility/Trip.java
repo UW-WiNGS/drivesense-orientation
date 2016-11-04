@@ -104,7 +104,7 @@ public class Trip {
 	 * @param folder
 	 */
 	public void readSensorDataFromFolder(String folder) throws Exception {
-		gps_ = ReadWriteTrace.readFile(folder.concat("gps.dat"), 2);
+		gps_ = ReadWriteTrace.readFile(folder.concat("gps.dat"), 3);
 		gps_elevation_ = ReadWriteTrace.readFile(folder.concat("gps_sychronized.dat"), 4);
 		for(Trace trace: gps_elevation_) {
 			trace.type = Trace.GPS;

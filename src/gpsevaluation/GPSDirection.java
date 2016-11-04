@@ -23,15 +23,14 @@ public class GPSDirection {
 		
 	public static void start() {
 		String outfolder = Constants.outputPath.concat("gpsdirection/turn/");
-		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
-		String type = "urban";
-		
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath.concat("altima/urban"));
 		List<Trace> gps = null;
 		List<Trace> rotated_gyroscope = null;
+				
+		/*
 		for(String directory: folders) {
 			//Log.log(TAG, directory);
-			String folder = directory.concat("/" + type);
-			List<Trip> trips = ReadWriteTrace.loadTrips(folder);
+			List<Trip> trips = ReadWriteTrace.loadTrips(directory);
 			for(Trip trip: trips) {
 				Log.log(TAG, trip.path);
 				gps = turnExtraction(trip.gps_elevation_);
@@ -40,9 +39,15 @@ public class GPSDirection {
 			}
 			break;
 		}
+		*/
+		
+		Trip trip = ReadWriteTrace.loadTrip(Constants.datPath.concat("lei/urban/1398642098259/"));
+		Log.log(TAG, trip.path);
+		gps = newSteeringExtraction(trip.gps_elevation_);
+		rotated_gyroscope = initProjectGyroscope(trip);
 		
 		ReadWriteTrace.writeFile(gps, outfolder.concat("gps.dat"));
-		//ReadWriteTrace.writeFile(rotated_gyroscope, outfolder.concat("rotated_gyroscope.dat"));
+		ReadWriteTrace.writeFile(rotated_gyroscope, outfolder.concat("rotated_gyroscope.dat"));
 	}
 
 	private static List<Trace> initProjectGyroscope(Trip trip) {
@@ -72,8 +77,38 @@ public class GPSDirection {
 		return rotated_gyroscope;
 	}
 	
-	private static List<Trace> turnExtraction(List<Trace> gps) {
+	private static List<Trace> rawSteeringExtraction(List<Trace> gps) {
 		List<Trace> res = new ArrayList<Trace>();
+		Log.log(TAG, gps.get(0).toJson());
+		for(int i = 0 ; i < gps.size() - 1; ++i) {
+			Trace cur = gps.get(i);
+			Trace next = gps.get(i + 1);
+			if(cur.values[3] == 0.0 && i > 0) {
+				Trace pre = gps.get(i - 1);
+				cur.values[2] = pre.values[2];
+				continue;
+			}
+			double direction = GPSAbstraction.direction(cur, next);
+			cur.values[2] = direction;
+		}
+		for(int i = 0; i < gps.size() - 1; ++i) {
+			Trace ntr = new Trace(5);
+			Trace cur = gps.get(i);
+			Trace next = gps.get(i + 1);
+			ntr.time = cur.time;
+			for(int j = 0; j < cur.dim; ++j) {
+				ntr.values[j] = cur.values[j];
+			}
+			ntr.values[4] = GPSAbstraction.turnAngle(cur.values[2], next.values[2])/((next.time - cur.time)/1000.0);
+			res.add(ntr);
+		}
+		return res;
+	}
+	
+	private static List<Trace> newSteeringExtraction(List<Trace> gps) {
+		List<Trace> res = new ArrayList<Trace>();
+		Log.log(TAG, gps.get(0).toJson());
+		List<Trace> sampled = new ArrayList<Trace>();
 		for(int i = 0 ; i < gps.size() - 1; ++i) {
 			Trace cur = gps.get(i);
 			Trace next = null;
@@ -81,14 +116,28 @@ public class GPSDirection {
 			double dist = 0.0;
 			for(; j < gps.size(); ++j) {
 				next = gps.get(j);
-				dist += Math.min(GPSAbstraction.distance(cur, next), cur.values[3] * (next.time - cur.time)/1000.0);
-				if(dist >= 50.0) {
+				double distbylatlng = GPSAbstraction.distance(cur, next);
+				dist += distbylatlng;
+				if(dist >= 10.0) {
 					break;
 				}
 			}
+			i = j - 1;
 			double direction = GPSAbstraction.direction(cur, next);
 			cur.values[2] = direction;
+			sampled.add(cur);
 		}
-		return gps;
+		for(int i = 0; i < sampled.size() - 1; ++i) {
+			Trace ntr = new Trace(5);
+			Trace cur = sampled.get(i);
+			Trace next = sampled.get(i + 1);
+			ntr.time = cur.time;
+			for(int j = 0; j < cur.dim; ++j) {
+				ntr.values[j] = cur.values[j];
+			}
+			ntr.values[4] = GPSAbstraction.turnAngle(cur.values[2], next.values[2])/((next.time - cur.time)/1000.0);
+			res.add(ntr);
+		}
+		return res;
 	}
 }

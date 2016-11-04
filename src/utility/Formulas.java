@@ -6,23 +6,6 @@ import org.apache.commons.math3.fitting.PolynomialCurveFitter;
 import org.apache.commons.math3.fitting.WeightedObservedPoints;
 
 public class Formulas {
-
-
-	/*0 to 360
-	 * 
-	 * degree difference from d2 to d1
-	 * */
-	public static double degreeDifference(double d1, double d2) {
-		double diff = d2 - d1;
-		if(diff > 180.0) {
-			diff = diff - 360.0;
-		} else if (diff < -180.0) {
-			diff = diff + 360.0;
-		} else {}
-
-		return diff;
-	}
-
 	
 
 	/**
