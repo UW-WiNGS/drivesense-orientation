@@ -49,6 +49,23 @@ public class DirectoryWalker {
 	 * @param directory
 	 * @return
 	 */
+	public static List<String> getFilePaths(String directory) {
+		File cur = new File(directory);
+		List<String> res = new ArrayList<String>();
+		File[] list = cur.listFiles();
+		for ( File f : list ) {
+			if ( f.isFile() ) {    
+				res.add(f.getAbsolutePath());
+			}
+		}
+		return res;
+	}
+	/**
+	 * 
+	 * get all the files under directory
+	 * @param directory
+	 * @return
+	 */
 	public static List<String> getFileNames(String directory) {
 		File cur = new File(directory);
 		List<String> res = new ArrayList<String>();

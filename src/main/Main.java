@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import sensors.OrientationChangeDetection;
 import tracereplay.RealTimeTiltCalculation;
 import utility.Constants;
 import utility.Log;
@@ -28,7 +29,9 @@ public class Main {
 		
 		//SlopeAwareAlignment.start();
 		
-		GPSDirection.start();
+		
+		OrientationChangeDetection.start();
+		//GPSDirection.start();
 	}
 	
 	

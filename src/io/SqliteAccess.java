@@ -10,6 +10,7 @@ import java.util.List;
 
 import utility.Log;
 import utility.Trace;
+import utility.Trip;
 
 public class SqliteAccess {
 	
@@ -40,6 +41,15 @@ public class SqliteAccess {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	public static Trip loadTrip(String path, long start) {
+		Trip trip = new Trip();
+		trip.accelerometer_ = loadSensorData(path, start, Trace.ACCELEROMETER);
+		trip.gyroscope_ = loadSensorData(path, start, Trace.GYROSCOPE);
+		trip.rotation_matrix_ = loadSensorData(path, start, Trace.ROTATION_MATRIX);
+		trip.gps_ = loadSensorData(path, start, Trace.GPS);
+		return trip;
 	}
 	
 

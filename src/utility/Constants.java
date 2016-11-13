@@ -40,6 +40,7 @@ public class Constants {
 	public static final String dbPath = Constants.kHome + "/projects/sensorgps/rawdb/";
 	public static final String datPath = Constants.kHome + "/projects/sensorgps/rawdat/";
 	public static final String outputPath = Constants.kHome + "/projects/sensorgps/workingset/";
+	public static final String kUncontrol = Constants.kHome + "/projects/sensorgps/wild/";
 	
     
     /*====================database related======================================================*/

@@ -253,7 +253,7 @@ public class RealTimeBehaviorDetector {
 	}
 	
 	
-	private Trace lowpassFilter(Trace last, Trace cur) {
+	public Trace lowpassFilter(Trace last, Trace cur) {
 		final double alpha = Constants.kExponentialMovingAverageAlpha;
 		Trace res = new Trace(cur.dim);
 		res.copyTrace(cur);

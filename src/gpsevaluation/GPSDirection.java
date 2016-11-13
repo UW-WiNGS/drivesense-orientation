@@ -43,7 +43,8 @@ public class GPSDirection {
 		
 		Trip trip = ReadWriteTrace.loadTrip(Constants.datPath.concat("lei/urban/1398642098259/"));
 		Log.log(TAG, trip.path);
-		gps = newSteeringExtraction(trip.gps_elevation_);
+		
+		gps = rawSteeringExtraction(trip.gps_elevation_);
 		rotated_gyroscope = initProjectGyroscope(trip);
 		
 		ReadWriteTrace.writeFile(gps, outfolder.concat("gps.dat"));
@@ -107,7 +108,6 @@ public class GPSDirection {
 	
 	private static List<Trace> newSteeringExtraction(List<Trace> gps) {
 		List<Trace> res = new ArrayList<Trace>();
-		Log.log(TAG, gps.get(0).toJson());
 		List<Trace> sampled = new ArrayList<Trace>();
 		for(int i = 0 ; i < gps.size() - 1; ++i) {
 			Trace cur = gps.get(i);
