@@ -157,7 +157,7 @@ public class PreProcess {
 	 * if alpha is 1, the result List is exactly the same to input traces
 	 * if alpha is 0, the result List is a List of the first value of input traces
 	 * */
-	public static List<Trace> exponentialMovingAverage(List<Trace> traces) {
+	public static List<Trace> exponentialMovingAverage(List<Trace> traces, int index) {
 		
 		double alpha = Constants.kExponentialMovingAverageAlpha;
 		
@@ -176,9 +176,14 @@ public class PreProcess {
 				res.add(trace); 
 				continue;
 			}
-			for(int j = 0; j < d; ++j) {
-				trace.values[j] = alpha * traces.get(i).values[j] + (1.0 - alpha) * history[j];
-				history[j] = trace.values[j];
+			if(index >= 0) {
+				trace.values[index] = alpha * traces.get(i).values[index] + (1.0 - alpha) * history[index];
+				history[index] = trace.values[index];
+			} else {
+				for(int j = 0; j < d; ++j) {
+					trace.values[j] = alpha * traces.get(i).values[j] + (1.0 - alpha) * history[j];
+					history[j] = trace.values[j];
+				}
 			}
 			res.add(trace);
 		}

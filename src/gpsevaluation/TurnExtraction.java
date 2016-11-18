@@ -35,11 +35,13 @@ public class TurnExtraction {
 			Trace trace = sub.get(i);
 			long time_diff = gyroscope.get(i + 1).time - gyroscope.get(i).time;			
 			double z = trace.values[kZIndex];
-			rads += Math.abs(z * (time_diff/1000.0));
+			rads += z * (time_diff/1000.0);
 		}
 		//Log.log(rads, Math.toDegrees(rads));
-		if(Math.abs(Math.toDegrees(rads)) > 60.0)
+		if(Math.abs(Math.toDegrees(rads)) > 60.0) {
+			pattern.accumulated_change = Math.toDegrees(rads);
 			return true;
+		}
 		return false;
 	}
 	

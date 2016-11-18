@@ -72,15 +72,15 @@ public class SlopeAwareAlignment {
 		
 		
 		List<Trace> res = loadGPS(path, start);
-		res = PreProcess.exponentialMovingAverage(res);
+		res = PreProcess.exponentialMovingAverage(res, -1);
 		res = PreProcess.interpolate(res, 10.0);
 		//ReadWriteTrace.writeFile(res, opath + "/test.dat");
 		
 		
 		
-		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER));
-		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE));
-		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix);
+		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER), -1);
+		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE), -1);
+		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix, -1);
 		
 		
 		ReadWriteTrace.writeFile(smoothed_accelerometer, opath + "/smoothed_accelerometer.dat");
@@ -343,9 +343,9 @@ public class SlopeAwareAlignment {
 		List<Trace> gps = SqliteAccess.loadSensorData(path, start, Trace.GPS);
 		
 		
-		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer);
-		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope);
-		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix);
+		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer, -1);
+		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope, -1);
+		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix, -1);
 
 		ReadWriteTrace.writeFile(smoothed_accelerometer, opath + "/smoothed_accelerometer.dat");
 		ReadWriteTrace.writeFile(smoothed_gyroscope, opath + "/smoothed_gyroscope.dat");

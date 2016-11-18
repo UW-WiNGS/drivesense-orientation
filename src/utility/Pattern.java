@@ -27,7 +27,7 @@ public class Pattern {
 	public int start_index = -1;
 	public int end_index = -1;
 		
-	
+	public double accumulated_change = 0.0;
 	/*start and end index*/
 	public double score = -1.0;
 	

@@ -124,6 +124,7 @@ public class RealTimeBehaviorDetector {
 	}
 	
 	public Trace calculateDirectionVector(List<Trace> trainsample) {
+		Log.log(TAG, "calculateDirectionVector");
 		Trace direction = new Trace(3);
 		List<Trace> window = new ArrayList<Trace>();
 		List<Integer> pattern = new ArrayList<Integer>();		
@@ -147,13 +148,10 @@ public class RealTimeBehaviorDetector {
 				window.remove(0);
 			}
 		}
-		Log.log(TAG, trainsample.size());
 		int pos = 0;
 		for(Integer cur: pattern) {
-			Log.log("test:", cur);
 			if(cur.intValue() < 0) {
 				Trace sub = PreProcess.getAverage(trainsample.subList(pos, pos + Math.abs(cur.intValue())));
-				Log.log(sub);
 			}
 			pos += Math.abs(cur);
 		}
@@ -173,7 +171,6 @@ public class RealTimeBehaviorDetector {
 			aligned.add(cur);
 		}
 		Trace avg = PreProcess.getAverage(aligned);
-		Log.log(Math.acos(avg.values[2]/9.5));
 	}
 	
 	private double coeff1 = 0.0;
@@ -192,8 +189,6 @@ public class RealTimeBehaviorDetector {
 		coeff1 = (sample.size() * coeff[1] + coeff1 * coeffcounter) / (sample.size() + coeffcounter);
 		coeffcounter += sample.size();
 		
-		//Log.log(coeff[0], coeff[1], coeff1);
-
 		
 		Trace hdiff = new Trace(3);
 		hdiff.setValues(1.0, coeff1, 0.0);

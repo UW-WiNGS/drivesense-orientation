@@ -53,6 +53,7 @@ public class Trace {
 	public void copyTrace(Trace trace) {
 		this.time = trace.time;
 		this.dim = trace.dim;
+		this.type = trace.type;
 		this.values = new double[dim];
 		for(int i = 0; i < dim; ++i) {
 			this.values[i] = trace.values[i];

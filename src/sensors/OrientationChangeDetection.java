@@ -18,7 +18,7 @@ public class OrientationChangeDetection {
 	
 	private static final String TAG = "OrientationChangeDetection";
 	public static void start() {
-		List<String> files = DirectoryWalker.getFilePaths(Constants.kUncontrol.concat("others"));
+		List<String> files = DirectoryWalker.getFilePaths(Constants.kUncontrol.concat("suman"));
 		double sum = 0.0;
 		Log.log(TAG, files.size());
 		List<Trace> accelerometer = new ArrayList<Trace>();
@@ -40,7 +40,7 @@ public class OrientationChangeDetection {
 		Log.log(TAG, sum);
 	
 		incrementalClustering(accelerometer);
-		//ReadWriteTrace.writeFile(accelerometer, Constants.outputPath.concat("orientation/data/accelerometer.dat"));
+		ReadWriteTrace.writeFile(accelerometer, Constants.outputPath.concat("orientation/data/accelerometer.dat"));
 		
 	}
 		
