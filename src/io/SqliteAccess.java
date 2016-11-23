@@ -45,6 +45,7 @@ public class SqliteAccess {
 	
 	public static Trip loadTrip(String path, long start) {
 		Trip trip = new Trip();
+		trip.path = path;
 		trip.accelerometer_ = loadSensorData(path, start, Trace.ACCELEROMETER);
 		trip.gyroscope_ = loadSensorData(path, start, Trace.GYROSCOPE);
 		trip.rotation_matrix_ = loadSensorData(path, start, Trace.ROTATION_MATRIX);

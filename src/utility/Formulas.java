@@ -9,6 +9,22 @@ public class Formulas {
 	
 
 	/**
+	 * Calculate the euclidean distance between two traces
+	 * @param tr0
+	 * @param tr1
+	 * @return
+	 */
+	public static double euclideanDistance(Trace tr0, Trace tr1) {
+		double res = 0.0;
+		double sum = 0.0;
+		for(int i = 0; i < tr0.values.length; ++i) {
+			sum += Math.pow(tr1.values[i] - tr0.values[i], 2.0);
+		}
+		res = Math.sqrt(sum);
+		return res;
+	}
+
+	/**
 	 * 
 	 * 
 	 * @param traces
