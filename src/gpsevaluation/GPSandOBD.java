@@ -18,7 +18,10 @@ public class GPSandOBD {
 	private static String TAG = "GPSEvaluation";
 	
 	public static void start() {
-		String outfolder = Constants.outputPath.concat("gpsevaluation/compareobdgps/accelerationofspeeds/");
+		//String outfolder = Constants.outputPath.concat("gpsevaluation/compareobdgps/accelerationofspeeds/");
+		String outfolder = Constants.outputPath.concat("gpsevaluation/gpsaccuracy/data/");
+		
+		
 		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
 		double sum = 0.0;
 		List<Trace> output = new ArrayList<Trace>();
@@ -27,7 +30,7 @@ public class GPSandOBD {
 			List<Trace> cur = new ArrayList<Trace>();
 			dict.add(cur);
 		}
-		String type = "highway";
+		String type = "urban";
 		for(String directory: folders) {
 			//Log.log(TAG, directory);
 			String folder = directory.concat("/" + type);
@@ -35,11 +38,13 @@ public class GPSandOBD {
 			for(Trip trip: trips) {
 				//Trace cur = checkMissingGPS(trip);
 				//output.add(cur);
-				//List<Trace> cur = compareGPSAndOBDSpeed(trip);
+				List<Trace> cur = compareGPSAndOBDSpeed(trip);
 				//List<Trace> cur = compareGPSAndOBDAcceleration(trip);
 				//List<Trace> cur = compareHardAcceleration(trip, 2.0);
 				//output.addAll(cur);
-				compareAccelerationOfSpeeds(trip, dict);
+				//compareAccelerationOfSpeeds(trip, dict);
+				
+				ReadWriteTrace.writeFile(cur, outfolder.concat(String.valueOf(trip.time_) + ".dat"));
 			}
 			//break;
 		}
@@ -48,10 +53,12 @@ public class GPSandOBD {
 		//double corr = Formulas.linear_correlation(output, 2, 3);
 		//Log.log(corr);
 		
+		
+		/*
 		for(int i = 0; i < 4; ++i) {
 			ReadWriteTrace.writeFile(dict.get(i), outfolder.concat(type + i + ".dat"));	
 		}
-		
+		*/
 	}
 	
 
@@ -168,6 +175,8 @@ public class GPSandOBD {
 			Trace cur = new Trace(3);
 			cur.time = curgps.time;
 			cur.values[0] = curgps.values[3] - curobd.values[0] * Constants.kKmPHToMeterPS;
+			cur.values[1] = curgps.values[3];
+			cur.values[2] = curobd.values[0] * Constants.kKmPHToMeterPS;
 			res.add(cur);
 		}
 		
