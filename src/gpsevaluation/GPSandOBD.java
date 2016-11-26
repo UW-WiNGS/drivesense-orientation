@@ -155,9 +155,7 @@ public class GPSandOBD {
 			cur.values[0] = gpsacce;
 			cur.values[1] = obdacce;
 			cur.values[2] = gpsacce - obdacce;
-
 			res.add(cur);
-			
 		}
 		
 		return res;

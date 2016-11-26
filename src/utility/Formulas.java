@@ -5,9 +5,10 @@ import java.util.List;
 import org.apache.commons.math3.fitting.PolynomialCurveFitter;
 import org.apache.commons.math3.fitting.WeightedObservedPoints;
 
+
 public class Formulas {
 	
-
+	
 	/**
 	 * Calculate the euclidean distance between two traces
 	 * @param tr0

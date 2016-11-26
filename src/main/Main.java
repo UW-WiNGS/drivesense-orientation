@@ -17,7 +17,8 @@ public class Main {
 		
 		
 		//GPSDirection.start();
-		OrientationChangeDetection.start();
+		//OrientationChangeDetection.start();
+		
 		
 	}
 }
