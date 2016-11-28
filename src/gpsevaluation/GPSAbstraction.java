@@ -212,6 +212,35 @@ public class GPSAbstraction {
 		return res;
 	}
 
+	public static List<Trace> wrapperGPS(List<Trace> gps) {
+		List<Trace> res = new ArrayList<Trace>();
+		for(int i = 0; i < gps.size() - 1; ++i) {
+			Trace cur = gps.get(i);
+			Trace ntr = new Trace(6);
+			ntr.time = cur.time;
+			ntr.type = cur.type;
+			for(int j = 0; j < cur.dim; ++j) {
+				ntr.values[j] = cur.values[j];
+			}			
+			ntr.values[3] = (gps.get(i + 1).values[2] - cur.values[2])/((gps.get(i + 1).time - cur.time)/1000.0);
+			for(int j = i + 1; j < gps.size(); ++j) {
+				Trace next = gps.get(j);
+				double dist = GPSAbstraction.distance(cur, next);
+				if(dist <= 10.0) continue;
+				double direction = GPSAbstraction.direction(cur, next);
+				ntr.values[4] = direction;
+				break;			
+			}
+			int sz = res.size();
+			if(sz >= 1) {
+				Trace pre = res.get(sz - 1);
+				pre.values[5] = GPSAbstraction.turnAngle(pre.values[4], ntr.values[4])/((ntr.time - pre.time)/1000.0);
+					
+			}
+			res.add(ntr);
+		}
+		return res;
+	}
 	
 	/**
 	 * assume that the difference between OBD speed and gps is within 10 seconds

@@ -116,7 +116,7 @@ public class OrientationChangeDetection {
 		
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
-		List<Trace> gps = PreProcess.exponentialMovingAverage(processGPS(trip.gps_), 3);
+		List<Trace> gps = PreProcess.exponentialMovingAverage(GPSAbstraction.wrapperGPS(trip.gps_), 3);
 		
 		
 		List<Trace> res = new ArrayList<Trace>();
@@ -170,14 +170,15 @@ public class OrientationChangeDetection {
 		return distortions;
 	}
 	
-	private static double clusterDistortion(List<Trace> cluster) {
+	public static double clusterDistortion(List<Trace> cluster) {
 		double distortion = 0.0;
 		Trace center = new Trace(3);
 		center.copyTrace(cluster.get(start_));
 		int counter = 1;
 		for(int i = start_ + 1; i < cluster.size(); ++i) {
 			Trace cur = cluster.get(i);
-			double dist = Formulas.euclideanDistance(center, cur);
+			double dist = 0.0;
+			dist = Formulas.euclideanDistance(center, cur);
 			counter ++;
 			for(int j = 0; j < center.dim; ++j) {
 				center.values[j] += (1.0/counter)*(cur.values[j] - center.values[j]); 
@@ -219,35 +220,6 @@ public class OrientationChangeDetection {
 		}
 	}
 	
-	private static List<Trace> processGPS(List<Trace> gps) {
-		List<Trace> res = new ArrayList<Trace>();
-		for(int i = 0; i < gps.size() - 1; ++i) {
-			Trace cur = gps.get(i);
-			Trace ntr = new Trace(6);
-			ntr.time = cur.time;
-			ntr.type = cur.type;
-			for(int j = 0; j < cur.dim; ++j) {
-				ntr.values[j] = cur.values[j];
-			}			
-			ntr.values[3] = (gps.get(i + 1).values[2] - cur.values[2])/((gps.get(i + 1).time - cur.time)/1000.0);
-			for(int j = i + 1; j < gps.size(); ++j) {
-				Trace next = gps.get(j);
-				double dist = GPSAbstraction.distance(cur, next);
-				if(dist <= 10.0) continue;
-				double direction = GPSAbstraction.direction(cur, next);
-				ntr.values[4] = direction;
-				break;			
-			}
-			int sz = res.size();
-			if(sz >= 1) {
-				Trace pre = res.get(sz - 1);
-				pre.values[5] = GPSAbstraction.turnAngle(pre.values[4], ntr.values[4])/((ntr.time - pre.time)/1000.0);
-					
-			}
-			res.add(ntr);
-		}
-		return res;
-		
-	}
+
  
 }

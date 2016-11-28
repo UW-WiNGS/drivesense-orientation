@@ -1,5 +1,7 @@
 package main;
 
+import sensors.CoordinateAlignment;
+import sensors.CovarianceAndAlignmentError;
 import sensors.OrientationChangeDetection;
 
 
@@ -19,6 +21,8 @@ public class Main {
 		//GPSDirection.start();
 		//OrientationChangeDetection.start();
 		
+		//CoordinateAlignment.start();
+		CovarianceAndAlignmentError.start();
 		
 	}
 }

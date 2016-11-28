@@ -89,7 +89,6 @@ public class RealTimeBehaviorDetector {
 					}
 					gravity_ = Math.sqrt(gravity_);
 					initRM_ = PreProcess.getAverage(window_rotation_matrix);
-					Log.log(TAG, "gravity set to be:" + gravity_);
 				}
 					
 				if(null == trainsample_) {

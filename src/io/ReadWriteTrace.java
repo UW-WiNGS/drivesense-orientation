@@ -18,7 +18,7 @@ import utility.Trip;
 
 public class ReadWriteTrace {
 
-	
+	private static final String TAG = "ReadWriteTrace";
 	private static final boolean LOG = false;
 	/**
 	 * 
@@ -89,8 +89,7 @@ public class ReadWriteTrace {
 	}
 	
 	/*given a file path, read the traces and return*/
-	static public List<Trace> readFile(String filePath, int dim) throws Exception
-	{
+	static public List<Trace> readFile(String filePath, int dim) {
 		List<Trace> data = new ArrayList<Trace>();
 		FileReader fr = null;
 		BufferedReader br = null;
@@ -106,7 +105,8 @@ public class ReadWriteTrace {
 			fr.close();
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			throw e;
+			Log.error(TAG, e.toString());
+			return null;
 		} finally {
 			if (br != null) {
 				try {
