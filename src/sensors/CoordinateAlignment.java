@@ -1,5 +1,6 @@
 package sensors;
 
+import io.DirectoryWalker;
 import io.ReadWriteTrace;
 
 import java.util.ArrayList;
@@ -21,8 +22,11 @@ public class CoordinateAlignment {
 	private static final String output = Constants.outputPath.concat("alignment/data/");
 	
 	public static void start() {
-		Trip trip = ReadWriteTrace.loadTrip(input);
-		offlineAlignment(trip);
+		//Trip trip = ReadWriteTrace.loadTrip(input);
+		//offlineAlignment(trip);
+		
+		
+		evaluateProjectedAccelerometer();
 	}
 	
 	
@@ -81,13 +85,7 @@ public class CoordinateAlignment {
 		/** 
 		 * feed the data into the real time detector
 		 */
-		List<List<Trace>> input = new ArrayList<List<Trace>>();
-		input.add(accelerometer);
-		input.add(gyroscope);
-		input.add(rotation_matrix);
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
-		TraceReplayEngine.traceReplay(input, detector);
-		
+		RealTimeBehaviorDetector detector = trainDetector(trip);
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();
 		if(rm == null || hrm == null) {
@@ -126,13 +124,111 @@ public class CoordinateAlignment {
 		return percentile;
 	}
 	
-	private static List<Trace> offlineAlignment(Trip trip) {
+	
+	private static void evaluateProjectedAccelerometer() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		String outpath = Constants.outputPath.concat("alignment/comparewithobd/");
+
+		double sum = 0.0;
+		List<Trace> output = new ArrayList<Trace>();
+		List<List<Trace>> dict = new ArrayList<List<Trace>>();
+		for(int i = 0; i < 4; i++) {
+			List<Trace> cur = new ArrayList<Trace>();
+			dict.add(cur);
+		}
+		String type = "highway";
+		for(String directory: folders) {
+			//Log.log(TAG, directory);
+			String folder = directory.concat("/" + type);
+			List<Trip> trips = ReadWriteTrace.loadTrips(folder);
+			for(Trip trip: trips) {
+				List<Trace> cur = compareAccelerometerAndOBD(trip);
+				if(cur == null) continue;
+				output.addAll(cur);
+			}
+			//break;
+		}
+		ReadWriteTrace.writeFile(output, outpath.concat("diff.dat"));
+	}
+	
+	/**
+	 * 
+	 * @param trip
+	 * @return
+	 */
+	private static List<Trace> compareAccelerometerAndOBD(Trip trip) {
+		RealTimeBehaviorDetector detector = trainDetector(trip);
+		List<Trace> accelerometer = alignAccelerometer(trip, detector);
+		if(accelerometer == null) {
+			return null;
+		}
+		
+		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
+
 		List<Trace> res = new ArrayList<Trace>();
+		for(int i = 0; i < speed.size(); ++i) {
+			Trace curspeed = speed.get(i);
+			Trace curacce = PreProcess.getTraceAt(accelerometer, curspeed.time);
+			if(curacce == null) continue;
+			Trace ntr = new Trace(3);
+			ntr.time = curspeed.time;
+			ntr.values[0] = curacce.values[1] - curspeed.values[1];
+			ntr.values[1] = curspeed.values[0];
+			ntr.values[2] = curacce.values[1];
+			
+			if(Math.abs(ntr.values[0]) > 4) {
+				continue;
+			}
+			res.add(ntr);
+		}
+		return res;
+	}
+	
+	private static List<Trace> alignAccelerometer(Trip trip, RealTimeBehaviorDetector detector) {
+		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
+		/** 
+		 * feed the data into the real time detector
+		 */
+		Trace rm = detector.getInitRM();
+		Trace hrm = detector.getHorizontalRM();
+		if(rm == null || hrm == null) {
+			return null;
+		}
+		int reverse_counter = 0;
+		List<Trace> projected_accelerometer = new ArrayList<Trace>();
+		for(Trace trace: accelerometer) {
+			Trace initrot = Formulas.rotate(trace, rm.values);
+			Trace hrot = Formulas.rotate(initrot, hrm.values);
+			
+			Trace ntr = new Trace(3);
+			ntr.copyTrace(hrot);
+			projected_accelerometer.add(ntr);
+			
+			long time = ntr.time;
+			Trace curspeed = PreProcess.getTraceAt(speed, time);
+			if(curspeed != null) {
+				double correct = ntr.values[1] - curspeed.values[1];
+				double reverse = ntr.values[1] + curspeed.values[1];
+				if(Math.abs(reverse) < Math.abs(correct)) {
+					reverse_counter ++;
+				}
+			}
+		}
+		if(reverse_counter >= 0.3 * projected_accelerometer.size()) {
+			for(Trace trace: projected_accelerometer) {
+				trace.values[0] = -trace.values[0];
+				trace.values[1] = -trace.values[1];
+			}
+		}
+		return projected_accelerometer;
+	}
+	
+	private static RealTimeBehaviorDetector trainDetector(Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
 		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));
-		
 		
 		/** 
 		 * feed the data into the real time detector
@@ -143,8 +239,14 @@ public class CoordinateAlignment {
 		input.add(rotation_matrix);
 		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
 		TraceReplayEngine.traceReplay(input, detector);
-				
+		return detector;
+	}
+	
+	private static void offlineAlignment(Trip trip) {
+		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		
+		RealTimeBehaviorDetector detector = trainDetector(trip);
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();
 
@@ -156,12 +258,14 @@ public class CoordinateAlignment {
 			ntr.copyTrace(hrot);
 			projected_accelerometer.add(ntr);
 		}
+		
+		/*
 		ReadWriteTrace.writeFile(projected_accelerometer, output.concat("/projected_accelerometer.dat"));
 		ReadWriteTrace.writeFile(speed, output.concat("/speed.dat"));
 		
 		List<Trace> accuracy = alignmentError(speed, projected_accelerometer);
 		ReadWriteTrace.writeFile(accuracy, output.concat("/accuracy.dat"));
-		
+		*/
 		
 		List<Trace> projected_gyroscope = new ArrayList<Trace>();
 		for(Trace trace: gyroscope) {
@@ -171,11 +275,9 @@ public class CoordinateAlignment {
 			ntr.copyTrace(hrot);
 			projected_gyroscope.add(ntr);
 		}
-		ReadWriteTrace.writeFile(projected_gyroscope, output.concat("/projected_gyroscope.dat"));
+		//ReadWriteTrace.writeFile(projected_gyroscope, output.concat("/projected_gyroscope.dat"));
 		
 		
-		
-		return res;
 	}
 	
 	private static List<Trace> calculateAccelerationByOBD(List<Trace> speed) {

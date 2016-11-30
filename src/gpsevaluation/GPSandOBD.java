@@ -30,7 +30,7 @@ public class GPSandOBD {
 			List<Trace> cur = new ArrayList<Trace>();
 			dict.add(cur);
 		}
-		String type = "urban";
+		String type = "highway";
 		for(String directory: folders) {
 			//Log.log(TAG, directory);
 			String folder = directory.concat("/" + type);
@@ -44,7 +44,7 @@ public class GPSandOBD {
 				//output.addAll(cur);
 				//compareAccelerationOfSpeeds(trip, dict);
 				
-				ReadWriteTrace.writeFile(cur, outfolder.concat(String.valueOf(trip.time_) + ".dat"));
+				ReadWriteTrace.writeFile(cur, outfolder.concat(String.valueOf(trip.time_) + ".txt"));
 			}
 			//break;
 		}
