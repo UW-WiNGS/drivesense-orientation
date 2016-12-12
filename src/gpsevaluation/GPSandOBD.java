@@ -4,6 +4,8 @@ import io.DirectoryWalker;
 import io.ReadWriteTrace;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import utility.Constants;
@@ -22,6 +24,8 @@ public class GPSandOBD {
 		String outfolder = Constants.outputPath.concat("gpsevaluation/gpsaccuracy/data/");
 		
 		
+		iterate();
+		/*
 		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
 		double sum = 0.0;
 		List<Trace> output = new ArrayList<Trace>();
@@ -52,13 +56,73 @@ public class GPSandOBD {
 		//ReadWriteTrace.writeFile(output, outfolder.concat(type + ".dat"));
 		//double corr = Formulas.linear_correlation(output, 2, 3);
 		//Log.log(corr);
-		
+		*/
 		
 		/*
 		for(int i = 0; i < 4; ++i) {
 			ReadWriteTrace.writeFile(dict.get(i), outfolder.concat(type + i + ".dat"));	
 		}
 		*/
+	}
+	
+	public static void iterate() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		double sum = 0.0;
+		List<Trace> output = new ArrayList<Trace>();
+		List<List<Trace>> dict = new ArrayList<List<Trace>>();
+		for(int i = 0; i < 40; i++) {
+			List<Trace> cur = new ArrayList<Trace>();
+			dict.add(cur);
+		}
+		List<Trace> res = new ArrayList<Trace>();
+
+		for(String directory: folders) {
+			Log.log(TAG, directory);
+			String highway = directory.concat("/highway");
+			String urban = directory.concat("/urban");
+			
+			List<Trip> trips = ReadWriteTrace.loadTrips(highway);
+			List<Trip> urbantrips = ReadWriteTrace.loadTrips(urban);
+			trips.addAll(urbantrips);
+			for(Trip trip: trips) {
+				accelerationOfSpeed(trip, dict);
+			}
+		}
+		for(int i = 0; i < dict.size(); ++i) {
+			List<Trace> curlist = dict.get(i);
+			Trace percentile = Formulas.percentileAccuracy(curlist, 2);
+			if(percentile == null) continue;
+			//Log.log(percentile.toJson());
+			res.add(percentile);
+		}
+		ReadWriteTrace.writeFile(res, Constants.kAlterSenseOutput.concat("evaluation/gps.dat"));
+	}
+	
+	
+	
+	public static void accelerationOfSpeed(Trip trip, List<List<Trace>> dict) {
+		List<Trace> speed = PreProcess.interpolate(trip.speed_, 1.0);
+		List<Trace> gps = trip.gps_elevation_;
+		for(int i = 0 ; i < gps.size() - 1; ++i) {
+			Trace curgps = gps.get(i);
+			Trace nextgps = gps.get(i + 1);
+			double gpsacce = (nextgps.values[3] - curgps.values[3])/((nextgps.time - curgps.time)/1000.0);
+			
+			Trace curobd = PreProcess.getTraceAt(speed, curgps.time);
+			Trace nextobd = PreProcess.getTraceAt(speed, nextgps.time);
+			if(curobd == null || nextobd == null || nextobd.time == curobd.time) continue;
+			double obdacce = (nextobd.values[0] - curobd.values[0]) * Constants.kKmPHToMeterPS/((nextobd.time - curobd.time)/1000.0);
+			
+			Trace cur = new Trace(3);
+			cur.time = curgps.time;
+			cur.values[0] = gpsacce;
+			cur.values[1] = obdacce;
+			cur.values[2] = Math.abs(gpsacce - obdacce);
+			double curspeed = curobd.values[0] * Constants.kKmPHToMeterPS;
+			
+			int j = Math.min((int)curspeed, 39);
+			dict.get(j).add(cur);
+		}
 	}
 	
 

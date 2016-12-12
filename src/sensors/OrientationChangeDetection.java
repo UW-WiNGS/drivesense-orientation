@@ -23,8 +23,101 @@ public class OrientationChangeDetection {
 		
 		detectOrientationChange();
 		
+		//flushSqliteData();
+		
+		
 		//processControlledTrips();		
 		//processWildTrips();
+		
+		//evaluateOrientaionChangeDetection();
+	}
+	
+	private static void evaluateOrientaionChangeDetection() {
+		String input = Constants.kUncontrol + "controlled/orientation_change/";
+		String output = Constants.outputPath + "orientation/orientationchange/data/";
+		List<String> files = DirectoryWalker.getFileNames(input);
+		Log.log(TAG, files);
+		for(String file: files) {
+			String name = file.substring(file.length() - 16, file.length() - 3);
+			long time = Long.valueOf(name);
+			Trip trip = SqliteAccess.loadTrip(input.concat(file), time);
+			List<Trace> res = orientationChangeDetection(trip);
+			//ReadWriteTrace.writeFile(res, output.concat("m2.dat"));
+		}
+	}
+	
+	public static boolean orientationChanged(List<Trace> accelerometer) {
+		SensorCluster cluster = new SensorCluster();
+		cluster.initCenter(accelerometer.get(0));
+		List<Trace> buffer = new LinkedList<Trace>();		
+		List<Trace> res = new ArrayList<Trace>();
+
+		boolean transition = false;
+		for(int i = 1; i < accelerometer.size(); ++i) {
+			Trace cur = accelerometer.get(i);
+			
+			buffer.add(cur);
+			if(buffer.size() >= 30) buffer.remove(0);						
+			double m2 = SensorCluster.calculateClusterVariance(buffer);
+			
+			if(m2 > Constants.kOrientationChangeVarianceThreshold) {
+				if(transition == false) {
+					//Log.log(TAG, cur.time);
+				}
+				transition = true;
+				return true;
+			} else {
+				if(transition == true) {
+					Log.log(TAG, cur.time, m2);
+					transition = false;
+					break;
+				}
+			}
+			cluster.addAccelerometer(cur);			
+		}
+		return false;
+		
+	}
+	
+	private static List<Trace> orientationChangeDetection(Trip trip) {
+	
+		List<Trace> accelerometer = processTrip(trip);
+		SensorCluster cluster = new SensorCluster();
+		
+		int start = 400;
+		
+		cluster.initCenter(accelerometer.get(start));
+		List<Trace> buffer = new LinkedList<Trace>();		
+		List<Trace> res = new ArrayList<Trace>();
+
+		boolean transition = false;
+		for(int i = start + 1; i < accelerometer.size(); ++i) {
+			Trace cur = accelerometer.get(i);
+			double tocluster = cluster.distanceToCenter(cur);
+			
+			buffer.add(cur);
+			if(buffer.size() >= 30) buffer.remove(0);						
+			double m2 = SensorCluster.calculateClusterVariance(buffer);
+			
+			if(m2 > Constants.kOrientationChangeVarianceThreshold) {
+				if(transition == false) {
+					Log.log(TAG, cur.time, trip.path);
+				}
+				transition = true;
+			} else {
+				if(transition == true) {
+					Log.log(TAG, cur.time, m2);
+					transition = false;
+					break;
+				}
+			}
+			cluster.addAccelerometer(cur);			
+			Trace ntr = new Trace(1);
+			ntr.time = cur.time;
+			ntr.values[0] = m2;
+			res.add(ntr);
+		}
+		return res;
 	}
 	
 	public static void detectOrientationChange() {
@@ -35,38 +128,35 @@ public class OrientationChangeDetection {
 		Trip trip = SqliteAccess.loadTrip(file, time);
 
 		List<Trace> accelerometer = processTrip(trip);			
-		double distortion = clusterDistortion(accelerometer);
-		Log.log(TAG, distortion);
-		
-		Trace center = new Trace(3);
-		
-		int start = 400;
+		int start = 0;
 
 		SensorCluster cluster = new SensorCluster();
 		cluster.initCenter(accelerometer.get(start));
-		SensorCluster ncluster = new SensorCluster();
-		
-		Trace tracking = new Trace(3);
+
 		List<Trace> buffer = new LinkedList<Trace>();
 		
-		int counter = 0;
-		double mean = 0.0, M2 = 0.0;
-		
 		List<Trace> res = new ArrayList<Trace>();
-		for(int i = start_ + 1; i < accelerometer.size(); ++i) {
+		boolean transition = false;
+		for(int i = start + 1; i < accelerometer.size(); ++i) {
 			Trace cur = accelerometer.get(i);
-			tracking.copyTrace(cur);
 			double tocluster = cluster.distanceToCenter(cur);
-			double tolast = Formulas.euclideanDistance(cur, tracking);
 			
-			if(Math.abs(tocluster) > 3.0) {
-				Log.log(TAG, cur.time, tocluster);
-			} else {				
-				cluster.addAccelerometer(cur);
-			}
 			buffer.add(cur);
-			if(buffer.size() >= 50) buffer.remove(0);
-			double m2 = clusterDistortion(buffer);
+			if(buffer.size() >= 30) buffer.remove(0);						
+			double m2 = SensorCluster.calculateClusterVariance(buffer);
+			
+			if(m2 > Constants.kOrientationChangeVarianceThreshold) {
+				if(transition == false) {
+					Log.log(TAG, cur.time, "start");
+				}
+				transition = true;
+			} else {
+				if(transition == true) {
+					Log.log(TAG, cur.time, m2);
+					transition = false;
+				}
+			}
+			cluster.addAccelerometer(cur);			
 			Trace ntr = new Trace(1);
 			ntr.time = cur.time;
 			ntr.values[0] = m2;
@@ -92,12 +182,12 @@ public class OrientationChangeDetection {
 			trips.addAll(highway);
 			for(Trip trip: trips) {				
 				List<Trace> accelerometer = processTrip(trip);
-				double distortion = clusterDistortion(accelerometer);
+				double distortion = SensorCluster.calculateClusterVariance(accelerometer);
 				//Log.log(TAG, distortion);
 				Trace tr = new Trace(9);
 				tr.time = trip.time_;
 				
-				List<Trace> distortionchange = trackClusterDistortion(accelerometer);
+				List<Trace> distortionchange = SensorCluster.trackClusterVariance(accelerometer);
 				
 				
 				long end = distortionchange.get(distortionchange.size() - 1).time;
@@ -115,14 +205,6 @@ public class OrientationChangeDetection {
 				}
 				if(outlier) continue;
 				output.add(tr);
-				
-				/*
-				if(counter >= 10) {
-					break;
-				}
-				counter ++;
-				ReadWriteTrace.writeFile(distortionchange, outfolder.concat("distortion" + String.valueOf(counter) + ".dat"));
-				*/				
 			}
 		}	
 		ReadWriteTrace.writeFile(output, outfolder.concat("fixed_distortion.dat"));		
@@ -144,10 +226,10 @@ public class OrientationChangeDetection {
 
 			Log.log(file, dist, trip.path);			
 			List<Trace> accelerometer = processTrip(trip);			
-			double distortion = clusterDistortion(accelerometer);
+			double distortion = SensorCluster.calculateClusterVariance(accelerometer);
 			Log.log(TAG, distortion);
 			
-			List<Trace> distortionchange = trackClusterDistortion(accelerometer);
+			List<Trace> distortionchange = SensorCluster.trackClusterVariance(accelerometer);
 			long end = distortionchange.get(distortionchange.size() - 1).time;
 			if(end <= 100 * 1000) continue;
 
@@ -208,83 +290,7 @@ public class OrientationChangeDetection {
 		*/
 	}
 	
-	private static final int start_ = 0; // seconds after start
-	public static List<Trace> trackClusterDistortion(List<Trace> cluster) {
-		List<Trace> res = new ArrayList<Trace>();
-		Trace center = new Trace(3);
-		center.copyTrace(cluster.get(0));
-		int counter = 0;
-		double mean = 0.0, M2 = 0.0;
-		for(int i = start_ + 1; i < cluster.size(); ++i) {
-			Trace cur = cluster.get(i);
-			double dist = 0.0;
-			dist = Formulas.euclideanDistance(center, cur);
-			counter ++;
-			for(int j = 0; j < center.dim; ++j) {
-				center.values[j] += (cur.values[j] - center.values[j])/counter; 
-			}
-			double delta = dist - mean;
-			mean += delta/counter;
-			M2 += delta * (dist - mean);
-			
-			Trace curdistor = new Trace(3);
-			curdistor.time = cur.time;
-			curdistor.values[0] = mean;
-			curdistor.values[1] = dist;
-			curdistor.values[2] = M2/counter;
-			res.add(curdistor);
-		}
-		return res;
-	}
-	
-	public static double clusterDistortion(List<Trace> cluster) {
-		double mean = 0.0, M2 = 0.0;
-		Trace center = new Trace(3);
-		center.copyTrace(cluster.get(0));
-		int counter = 0;
-		for(int i = start_ + 1; i < cluster.size(); ++i) {
-			Trace cur = cluster.get(i);
-			double dist = 0.0;
-			dist = Formulas.euclideanDistance(center, cur);
-			counter ++;
-			for(int j = 0; j < center.dim; ++j) {
-				center.values[j] += (cur.values[j] - center.values[j])/counter; 
-			}
-			double delta = dist - mean;
-			mean += delta/counter;
-			M2 += delta * (dist - mean);
-		}
-		return M2/counter;
-	}
-	
 
-	public static void incrementalClustering(List<Trace> accelerometer) {
-		int k = 2;
-		Trace [] center = new Trace[k];
-		int [] counter = new int[k];
-		for(int i = 0; i < k; ++i) {
-			center[i] = new Trace(3);
-			center[i].copyTrace(accelerometer.get(i));
-			counter[i] = 1;
-		}
-		for(int i = k; i < accelerometer.size(); ++i) {
-			//find the closest
-			double maxdist = Double.MAX_VALUE;
-			Trace cur = accelerometer.get(i);	
-			int index = -1;
-			for(int j = 0; j < k; ++j) {
-				double dist = Formulas.euclideanDistance(center[j], cur);
-				if(dist < maxdist) {
-					maxdist = dist;
-					index = j;
-				}
-			}
-			counter[index]++;
-			for(int j = 0; j < center[index].dim; ++j) {
-				center[index].values[j] += (1.0/counter[index])*(cur.values[j] - center[index].values[j]); 
-			}
-		}
-	}
 	
 
  

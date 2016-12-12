@@ -23,6 +23,8 @@ public class Constants {
 	public static final String kOutputSeperator = "\t";
     public static final String slash = "/";
     
+    
+    public static final double kOrientationChangeVarianceThreshold = 1.2;
 
     public static final double kAirFuelRatio = 14.67;
     public static final double kMAFtoAFR = 3600.0/(kAirFuelRatio * 6.17 * 454);
@@ -39,9 +41,12 @@ public class Constants {
     public static final String kHome = System.getProperty("user.home");
 	public static final String dbPath = Constants.kHome + "/projects/sensorgps/rawdb/";
 	public static final String datPath = Constants.kHome + "/projects/sensorgps/rawdat/";
+	
 	public static final String outputPath = Constants.kHome + "/projects/sensorgps/workingset/";
 	public static final String kUncontrol = Constants.kHome + "/projects/sensorgps/wild/";
 	
+	public static final String kSlopeSenseOutput = Constants.kHome + "/Dropbox/projects/slopesense/data/workingset/";
+	public static final String kAlterSenseOutput = Constants.kHome + "/Dropbox/projects/gpsorsensor/workingset/";
     
     /*====================database related======================================================*/
     

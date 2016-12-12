@@ -1,6 +1,6 @@
 package main;
 
-import sensors.OrientationChangeDetection;
+import gpsevaluation.GPSDirection;
 
 
 public class Main {
@@ -16,13 +16,19 @@ public class Main {
 		//SlopeAwareAlignment.start();
 		
 		
-		//GPSDirection.start();
-		
 		
 		//CoordinateAlignment.start();
 		
 		//CovarianceAndAlignmentError.start();
-		OrientationChangeDetection.start();
 		
+		//OrientationChangeDetection.start();
+		
+		
+		//GPSDirection.start();
+		
+		
+		//XSense.start();
+		
+		WildEvaluation.start();
 	}
 }

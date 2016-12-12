@@ -1,4 +1,4 @@
-package main;
+package sensors;
 
 import io.DirectoryWalker;
 import io.ReadWriteTrace;
@@ -13,33 +13,232 @@ import tracereplay.TraceReplayEngine;
 import utility.Constants;
 import utility.Formulas;
 import utility.Log;
+import utility.Pattern;
 import utility.PreProcess;
 import utility.Trace;
+import utility.Trip;
 
 public class SlopeAwareAlignment {
 	
-	private static String input = "/home/lkang/Dropbox/projects/drivesense/data/lei_db/";
-	private static String output = "/home/lkang/Dropbox/projects/drivesense/data/lei_dat/";
+	
+	private static String TAG = "SlopeAwareAlignment";
 	
 	public static void start() {
-		List<String> files = DirectoryWalker.getFileNames(input);
-		for(String file: files) {
-			String name = file.substring(0, 13);
-			String ipath = input.concat(file);
-			long start = Long.valueOf(name);
-			String opath = output.concat(name);
-			/*
-			if(!name.endsWith("1399578241231")) {
-				continue;
+		//test();
+		
+		//iterate();
+		
+		trainlengthAndAccuracy();
+	}
+	
+	public static void iterate() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		
+		int counter = 0;
+		for(String directory: folders) {
+			List<Trip> trips = ReadWriteTrace.loadTrips(directory.concat("/urban"));
+			//List<Trip> highway = ReadWriteTrace.loadTrips(directory.concat("/highway"));
+			//trips.addAll(highway);
+			List<Trace> output = new ArrayList<Trace>();	
+			for(Trip trip: trips) {				
+				//boolean changed = testTrip(trip);
+				//Log.log(TAG, trip.path, changed);
+				
+				/*
+				List<Trace> stops = stopDetection(trip);
+				output.addAll(stops);
+				if(output.size() >= 1000) {
+					break;
+				}
+				*/
 			}
-			*/
-			DirectoryWalker.createFolder(opath);
-			//flatRoadDetector(ipath, start, opath);
-			
-			//test(ipath, start, opath);
-			break;
+			//ReadWriteTrace.writeFile(output, Constants.kAlterSenseOutput.concat("stopextraction/" + String.valueOf(counter)));
+			counter++;
 		}
 	}
+	
+	
+	private static void trainlengthAndAccuracy() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		List<Trip> trips = new ArrayList<Trip>();
+		for(String directory: folders) {
+			trips.addAll(ReadWriteTrace.loadTrips(directory.concat("/urban")));
+			if(trips.size() >= 100) {
+				break;
+			}
+		}
+		
+		List<Trace> output = new ArrayList<Trace>();
+		for(int i = 10; i <= 100; i+=5) {
+			List<Trace> errors = alignmentError(trips, i);	
+			Trace percentile = CoordinateAlignment.alignmentPencentileAccuracy(errors);
+			if(percentile == null) continue;
+			output.add(percentile);
+		}
+		ReadWriteTrace.writeFile(output, Constants.kAlterSenseOutput.concat("trainlength/error.dat"));
+	}
+	private static List<Trace> alignmentError(List<Trip> trips, int len) {
+		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		detector.setTrainLength(len);
+		List<Trace> errors = new ArrayList<Trace>();
+		for(Trip trip: trips) {
+			List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+			boolean changed = OrientationChangeDetection.orientationChanged(accelerometer);
+			if(changed) continue;
+			CoordinateAlignment.trainDetector(detector, trip);
+			List<Trace> speed = CoordinateAlignment.calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
+
+			List<Trace> projected_accelerometer = CoordinateAlignment.alignAccelerometer(detector, trip);
+			List<Trace> tmperror = CoordinateAlignment.alignmentError(speed, projected_accelerometer);
+			if(tmperror == null) {
+				continue;
+			}
+			errors.addAll(tmperror);
+			
+			if(errors.size() >= 10000) break;
+		}
+		return errors;
+	}
+	
+	
+	private static List<Trace> stopDetection(Trip trip) {
+		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+		List<Trace> speed = CoordinateAlignment.calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));
+		
+		List<Trace> res = new ArrayList<Trace>();
+		List<Pattern> patterns = new ArrayList<Pattern>();
+		
+		boolean inpattern = false;
+		Pattern pattern = null;
+		for(int i = 0; i < speed.size(); ++i) {
+			Trace curspeed = speed.get(i);
+			if(curspeed.values[0] == 0.0) {
+				if(inpattern == false) {
+					pattern = new Pattern();
+					pattern.start = curspeed.time;
+					inpattern = true;
+				}
+			} else {
+				if(inpattern == true) {
+					pattern.end = curspeed.time;
+					List<Trace> substop = PreProcess.extractSubList(accelerometer, pattern.start + 1000, pattern.end - 1000);
+					
+					if(substop.size() > 15) {
+						List<Trace> variance = SensorCluster.slidingVariance(substop, 15);
+						res.addAll(variance);
+					}
+					pattern = null;
+					inpattern = false;
+				}
+			}
+		}
+		return res;
+	}
+	
+
+	
+	private static void trainSetTest(RealTimeBehaviorDetector detector, String output) {
+		
+		List<List<Trace>> trainset = detector.getTrainSet();
+		int sz = trainset.size();
+		Trace rm = detector.getInitRM();
+		Trace hrm = detector.getHorizontalRM();
+		
+		for(int i = 0; i < trainset.size(); ++i) {
+			List<Trace> subset = trainset.get(i);
+			List<Trace> projected = new ArrayList<Trace>();
+			Log.log(TAG, subset.size());
+			for(Trace trace: subset) {
+				Trace initrot = Formulas.rotate(trace, rm.values);
+				Trace hrot = Formulas.rotate(initrot, hrm.values);
+				
+				Trace ntr = new Trace(3);
+				ntr.copyTrace(hrot);
+				projected.add(ntr);
+			}
+			ReadWriteTrace.writeFile(projected, output.concat("trainingset/" + String.valueOf(i)));
+			if(i > 10) {
+				break;
+			}
+		}
+		
+	}
+	
+	private static void test() {
+		String inputfile = Constants.datPath.concat("lei/urban/1397761356431/");
+		String output = Constants.kSlopeSenseOutput.concat("test/");
+		Trip trip = ReadWriteTrace.loadTrip(inputfile);
+		//boolean changed = testTrip(trip);
+		//Log.log(TAG, trip.path, changed);
+
+		
+		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
+		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
+		List<Trace> speed = CoordinateAlignment.calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));
+
+		//train detector
+		List<List<Trace>> input = new ArrayList<List<Trace>>();
+		input.add(accelerometer);
+		input.add(gyroscope);
+		input.add(rotation_matrix);
+		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		TraceReplayEngine.traceReplay(input, detector);
+		
+		
+		trainSetTest(detector, output);
+		
+		Trace rm = detector.getInitRM();
+		Trace hrm = detector.getHorizontalRM();
+		if(rm == null || hrm == null) {
+			Log.log(TAG, "train failed");
+		}
+		int reverse_counter = 0;
+		List<Trace> projected_accelerometer = new ArrayList<Trace>();
+		for(Trace trace: accelerometer) {
+			Trace initrot = Formulas.rotate(trace, rm.values);
+			Trace hrot = Formulas.rotate(initrot, hrm.values);
+			
+			Trace ntr = new Trace(3);
+			ntr.copyTrace(hrot);
+			projected_accelerometer.add(ntr);
+			
+			long time = ntr.time;
+			Trace curspeed = PreProcess.getTraceAt(speed, time);
+			if(curspeed != null) {
+				double correct = ntr.values[1] - curspeed.values[1];
+				double reverse = ntr.values[1] + curspeed.values[1];
+				if(Math.abs(reverse) < Math.abs(correct)) {
+					reverse_counter ++;
+				}
+			}
+		}
+		if(reverse_counter >= 0.3 * projected_accelerometer.size()) {
+			for(Trace trace: projected_accelerometer) {
+				trace.values[0] = -trace.values[0];
+				trace.values[1] = -trace.values[1];
+			}
+		}
+		
+		
+		ReadWriteTrace.writeFile(accelerometer, output.concat("accelerometer.dat"));
+		ReadWriteTrace.writeFile(gyroscope, output.concat("gyroscope.dat"));
+		ReadWriteTrace.writeFile(projected_accelerometer, output.concat("projected_accelerometer.dat"));
+		ReadWriteTrace.writeFile(speed, output.concat("speed.dat"));
+		
+	}
+	
+	private static boolean testTrip(Trip trip) {
+		List<Trace> speed = PreProcess.interpolate(trip.speed_, 2.0);
+		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
+		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
+
+		boolean changed = OrientationChangeDetection.orientationChanged(accelerometer);
+		
+		return changed;
+	}
+	
 	
 	public static List<Trace> loadGPS(String path, long start) {		
 		List<Trace> speed = new ArrayList<Trace>();
@@ -249,119 +448,6 @@ public class SlopeAwareAlignment {
 		return speed;
 	}
 	
-	
-	
-	
-	
-
-	
-
-
-	public static void getRotationMatrixFromVector(double[] R, double[] rotationVector) {
-
-        double q0;
-        double q1 = rotationVector[0];
-        double q2 = rotationVector[1];
-        double q3 = rotationVector[2];
-        q0 = 1 - q1*q1 - q2*q2 - q3*q3;
-        q0 = (q0 > 0) ? (double)Math.sqrt(q0) : 0;
-
-        double sq_q1 = 2 * q1 * q1;
-        double sq_q2 = 2 * q2 * q2;
-        double sq_q3 = 2 * q3 * q3;
-        double q1_q2 = 2 * q1 * q2;
-        double q3_q0 = 2 * q3 * q0;
-        double q1_q3 = 2 * q1 * q3;
-        double q2_q0 = 2 * q2 * q0;
-        double q2_q3 = 2 * q2 * q3;
-        double q1_q0 = 2 * q1 * q0;           
-        R[0] = 1 - sq_q2 - sq_q3;
-        R[1] = q1_q2 - q3_q0;
-        R[2] = q1_q3 + q2_q0;
-
-        R[3] = q1_q2 + q3_q0;
-        R[4] = 1 - sq_q1 - sq_q3;
-        R[5] = q2_q3 - q1_q0;
-
-        R[6] = q1_q3 - q2_q0;
-        R[7] = q2_q3 + q1_q0;
-        R[8] = 1 - sq_q1 - sq_q2;   
-    }
-	
-	
-	private static final double MS2S = 1.0f / 1000.0f;
-	private final double[] deltaRotationVector = new double[4];
-	private double timestamp = 0;
-	public static final double EPSILON = 0.000000001f;
-	
-	public Trace onGyroscopeChanged(Trace gyro) {
-	  // This timestep's delta rotation to be multiplied by the current rotation
-	  // after computing it from the gyro sample data.
-		if (timestamp != 0) {
-			//final double dT = (gyro.time - timestamp) * MS2S;
-			final double dT = 1.0;
-			
-			// Axis of the rotation sample, not normalized yet.
-			double axisX = gyro.values[0];
-			double axisY = gyro.values[1];
-			double axisZ = gyro.values[2];
-
-			// Calculate the angular speed of the sample
-			double omegaMagnitude = Math.sqrt(axisX*axisX + axisY*axisY + axisZ*axisZ);
-			
-			// Normalize the rotation vector if it's big enough to get the axis
-			// (that is, EPSILON should represent your maximum allowable margin of error)
-			if (omegaMagnitude > EPSILON) {
-				axisX /= omegaMagnitude;
-				axisY /= omegaMagnitude;
-				axisZ /= omegaMagnitude;
-			}
-			double thetaOverTwo = omegaMagnitude * dT / 2.0f;
-			double sinThetaOverTwo = Math.sin(thetaOverTwo);
-			double cosThetaOverTwo = Math.cos(thetaOverTwo);
-			deltaRotationVector[0] = sinThetaOverTwo * axisX;
-			deltaRotationVector[1] = sinThetaOverTwo * axisY;
-			deltaRotationVector[2] = sinThetaOverTwo * axisZ;
-			deltaRotationVector[3] = cosThetaOverTwo;
-		}
-		timestamp = gyro.time;
-		Trace tr = new Trace(9);
-		tr.time = gyro.time;
-		
-		//Log.log(deltaRotationVector[2]);
-		
-		getRotationMatrixFromVector(tr.values, deltaRotationVector);
-		return tr;
-	}
-
-	
-	public void flatRoadDetector(String path, long start, String opath) {
-		List<Trace> speed = PreProcess.interpolate(loadOBDSpeed(path, start), 1.0);
-		List<Trace> accelerometer = SqliteAccess.loadSensorData(path, start, Trace.ACCELEROMETER);
-		List<Trace> gyroscope = SqliteAccess.loadSensorData(path, start, Trace.GYROSCOPE);
-		List<Trace> rotation_matrix = SqliteAccess.loadSensorData(path, start, Trace.ROTATION_MATRIX);
-		List<Trace> gps = SqliteAccess.loadSensorData(path, start, Trace.GPS);
-		
-		
-		List<Trace> smoothed_accelerometer = PreProcess.exponentialMovingAverage(accelerometer, -1);
-		List<Trace> smoothed_gyroscope = PreProcess.exponentialMovingAverage(gyroscope, -1);
-		List<Trace> smoothed_rm = PreProcess.exponentialMovingAverage(rotation_matrix, -1);
-
-		ReadWriteTrace.writeFile(smoothed_accelerometer, opath + "/smoothed_accelerometer.dat");
-		ReadWriteTrace.writeFile(smoothed_gyroscope, opath + "/smoothed_gyroscope.dat");
-
-		ReadWriteTrace.writeFile(speed, opath + "/speed.dat");
-		
-		List<Trace> subacce = PreProcess.extractSubList(smoothed_accelerometer, 130*1000, 200*1000);
-		List<Trace> subgyro = PreProcess.extractSubList(smoothed_gyroscope, 130*1000, 200*1000);
-		List<Trace> subrm = PreProcess.extractSubList(rotation_matrix, 130*1000, 135*1000);
-		
-		
-		/*
-		List<Trace> corr_gyro = calculateCorrelation(projectedgyro);
-		ReadWriteTrace.writeFile(corr_gyro, opath + "/fr_correlation_projected_gyro.dat");
-		*/
-	}
 	
 
 	

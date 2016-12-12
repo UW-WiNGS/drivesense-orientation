@@ -1,7 +1,10 @@
 package sensors;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
 import utility.Formulas;
-import utility.Log;
 import utility.Trace;
 
 public class SensorCluster {
@@ -39,5 +42,80 @@ public class SensorCluster {
 	}
 	
 	
+	////===============static methods ====================================
 	
+	/**
+	 * 
+	 * @param cluster
+	 * @param size
+	 * @return
+	 */
+	
+	public static List<Trace> slidingVariance(List<Trace> cluster, int size) {
+		List<Trace> res = new ArrayList<Trace>();
+		List<Trace> slidingWindow = new LinkedList<Trace>();
+		for(int i = 0; i < cluster.size(); ++i) {
+			Trace cur = cluster.get(i);
+			slidingWindow.add(cur);
+			if(slidingWindow.size() == size) {
+				double variance = SensorCluster.calculateClusterVariance(slidingWindow);
+				slidingWindow.remove(0);
+				Trace ntr = new Trace(1);
+				ntr.time = cur.time;
+				ntr.values[0] = variance;
+				res.add(ntr);
+			}
+		}
+		return res;
+	}
+	
+	
+	
+	public static double calculateClusterVariance(List<Trace> cluster) {
+		double mean = 0.0, M2 = 0.0;
+		Trace center = new Trace(3);
+		center.copyTrace(cluster.get(0));
+		int counter = 0;
+		for(int i = 1; i < cluster.size(); ++i) {
+			Trace cur = cluster.get(i);
+			double dist = 0.0;
+			dist = Formulas.euclideanDistance(center, cur);
+			counter ++;
+			for(int j = 0; j < center.dim; ++j) {
+				center.values[j] += (cur.values[j] - center.values[j])/counter; 
+			}
+			double delta = dist - mean;
+			mean += delta/counter;
+			M2 += delta * (dist - mean);
+		}
+		return M2/counter;
+	}
+	
+	public static List<Trace> trackClusterVariance(List<Trace> cluster) {
+		List<Trace> res = new ArrayList<Trace>();
+		Trace center = new Trace(3);
+		center.copyTrace(cluster.get(0));
+		int counter = 0;
+		double mean = 0.0, M2 = 0.0;
+		for(int i = 1; i < cluster.size(); ++i) {
+			Trace cur = cluster.get(i);
+			double dist = 0.0;
+			dist = Formulas.euclideanDistance(center, cur);
+			counter ++;
+			for(int j = 0; j < center.dim; ++j) {
+				center.values[j] += (cur.values[j] - center.values[j])/counter; 
+			}
+			double delta = dist - mean;
+			mean += delta/counter;
+			M2 += delta * (dist - mean);
+			
+			Trace curdistor = new Trace(3);
+			curdistor.time = cur.time;
+			curdistor.values[0] = mean;
+			curdistor.values[1] = dist;
+			curdistor.values[2] = M2/counter;
+			res.add(curdistor);
+		}
+		return res;
+	}
 }

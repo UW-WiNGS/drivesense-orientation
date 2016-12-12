@@ -6,6 +6,7 @@ import io.ReadWriteTrace;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 
 import tracereplay.RealTimeBehaviorDetector;
@@ -30,7 +31,7 @@ public class CoordinateAlignment {
 	}
 	
 	
-	private static Trace alignmentPencentileAccuracy(List<Trace> errors) {
+	public static Trace alignmentPencentileAccuracy(List<Trace> errors) {
 		
 		Collections.sort(errors, new Comparator<Trace>() {
 			public int compare(Trace tr0, Trace tr1) {
@@ -55,7 +56,7 @@ public class CoordinateAlignment {
 		return res;
 	}
 	
-	private static List<Trace> alignmentError(List<Trace> speed, List<Trace> projected_accelerometer) {
+	public static List<Trace> alignmentError(List<Trace> speed, List<Trace> projected_accelerometer) {
 		List<Trace> res = new ArrayList<Trace>();
 		for(int i = 0; i < speed.size(); ++i) {
 			Trace cur = speed.get(i);
@@ -77,7 +78,8 @@ public class CoordinateAlignment {
 		return res;
 	}
 	
-	public static Trace alignmentPerformance(Trip trip) {
+	
+	public static List<Trace> alignAccelerometer(RealTimeBehaviorDetector detector, Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
@@ -85,7 +87,7 @@ public class CoordinateAlignment {
 		/** 
 		 * feed the data into the real time detector
 		 */
-		RealTimeBehaviorDetector detector = trainDetector(trip);
+		
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();
 		if(rm == null || hrm == null) {
@@ -99,7 +101,6 @@ public class CoordinateAlignment {
 			
 			Trace ntr = new Trace(3);
 			ntr.copyTrace(hrot);
-			projected_accelerometer.add(ntr);
 			
 			long time = ntr.time;
 			Trace curspeed = PreProcess.getTraceAt(speed, time);
@@ -117,6 +118,32 @@ public class CoordinateAlignment {
 				trace.values[1] = -trace.values[1];
 			}
 		}
+		return projected_accelerometer;
+	}
+	
+	public static void setStop(List<Trace> accelerometer) {
+		
+		List<Trace> window = new LinkedList<Trace>();
+		for(int i = 0; i < accelerometer.size(); ++i) {
+			Trace cur = accelerometer.get(i);
+			window.add(cur);
+			if(window.size() == 15) {
+				double variance = SensorCluster.calculateClusterVariance(window);
+				if(variance <= 0.006) {
+					cur.values[0] = 0.0;
+					cur.values[1] = 0.0;
+				} 	
+				window.remove(0);
+			}
+		}
+	}
+	
+	public static Trace alignmentPerformance(Trip trip, RealTimeBehaviorDetector detector) {
+		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
+
+		List<Trace> projected_accelerometer = alignAccelerometer(detector, trip);
+		setStop(projected_accelerometer);
+		
 		
 		List<Trace> errors = alignmentError(speed, projected_accelerometer);
 		if(errors == null) return null;
@@ -127,28 +154,35 @@ public class CoordinateAlignment {
 	
 	private static void evaluateProjectedAccelerometer() {
 		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
-		String outpath = Constants.outputPath.concat("alignment/comparewithobd/");
+		String outpath = Constants.kAlterSenseOutput.concat("alignment/comparewithobd/cars/");
 
 		double sum = 0.0;
-		List<Trace> output = new ArrayList<Trace>();
-		List<List<Trace>> dict = new ArrayList<List<Trace>>();
-		for(int i = 0; i < 4; i++) {
-			List<Trace> cur = new ArrayList<Trace>();
-			dict.add(cur);
-		}
-		String type = "highway";
+		
 		for(String directory: folders) {
+			List<Trace> output = new ArrayList<Trace>();
+			String names[] = directory.split("/");
 			//Log.log(TAG, directory);
-			String folder = directory.concat("/" + type);
-			List<Trip> trips = ReadWriteTrace.loadTrips(folder);
+			String highway = directory.concat("/highway");
+			String urban = directory.concat("/urban");
+			
+			List<Trip> htrips = ReadWriteTrace.loadTrips(highway);
+			
+			List<Trip> trips = ReadWriteTrace.loadTrips(urban);
+			trips.addAll(htrips);
 			for(Trip trip: trips) {
+				List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+				if(accelerometer.size() < 600 || OrientationChangeDetection.orientationChanged(accelerometer)) {
+					//Log.log(TAG, trip.path, "too short");
+					continue;
+				}
+				
 				List<Trace> cur = compareAccelerometerAndOBD(trip);
 				if(cur == null) continue;
 				output.addAll(cur);
 			}
-			//break;
+			ReadWriteTrace.writeFile(output, outpath.concat(names[names.length - 1] + ".dat"));
 		}
-		ReadWriteTrace.writeFile(output, outpath.concat("diff.dat"));
+		//ReadWriteTrace.writeFile(output, outpath.concat("diff.dat"));
 	}
 	
 	/**
@@ -157,14 +191,17 @@ public class CoordinateAlignment {
 	 * @return
 	 */
 	private static List<Trace> compareAccelerometerAndOBD(Trip trip) {
-		RealTimeBehaviorDetector detector = trainDetector(trip);
+		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		trainDetector(detector, trip);
 		List<Trace> accelerometer = alignAccelerometer(trip, detector);
 		if(accelerometer == null) {
 			return null;
 		}
+		setStop(accelerometer);
 		
-		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
+		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 1.0));		
 
+		int counter = 0;
 		List<Trace> res = new ArrayList<Trace>();
 		for(int i = 0; i < speed.size(); ++i) {
 			Trace curspeed = speed.get(i);
@@ -172,19 +209,24 @@ public class CoordinateAlignment {
 			if(curacce == null) continue;
 			Trace ntr = new Trace(3);
 			ntr.time = curspeed.time;
-			ntr.values[0] = curacce.values[1] - curspeed.values[1];
+			ntr.values[0] = Math.abs(curacce.values[1] - curspeed.values[1]);
 			ntr.values[1] = curspeed.values[0];
 			ntr.values[2] = curacce.values[1];
 			
-			if(Math.abs(ntr.values[0]) > 4) {
+			if(Math.abs(ntr.values[0]) > 3.0) {
+				
+				counter++;
 				continue;
 			}
 			res.add(ntr);
 		}
+		if(counter > speed.size()/10.0) {
+			return null;
+		}
 		return res;
 	}
 	
-	private static List<Trace> alignAccelerometer(Trip trip, RealTimeBehaviorDetector detector) {
+	public static List<Trace> alignAccelerometer(Trip trip, RealTimeBehaviorDetector detector) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
 		/** 
@@ -224,7 +266,7 @@ public class CoordinateAlignment {
 		return projected_accelerometer;
 	}
 	
-	private static RealTimeBehaviorDetector trainDetector(Trip trip) {
+	public static void trainDetector(RealTimeBehaviorDetector detector, Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
@@ -237,16 +279,15 @@ public class CoordinateAlignment {
 		input.add(accelerometer);
 		input.add(gyroscope);
 		input.add(rotation_matrix);
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
 		TraceReplayEngine.traceReplay(input, detector);
-		return detector;
 	}
 	
 	private static void offlineAlignment(Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		
-		RealTimeBehaviorDetector detector = trainDetector(trip);
+		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		trainDetector(detector, trip);
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();
 
@@ -280,7 +321,7 @@ public class CoordinateAlignment {
 		
 	}
 	
-	private static List<Trace> calculateAccelerationByOBD(List<Trace> speed) {
+	public static List<Trace> calculateAccelerationByOBD(List<Trace> speed) {
 		List<Trace> res = new ArrayList<Trace>();
 		for(int i = 0; i < speed.size() - 1; ++i) {
 			Trace cur = speed.get(i);

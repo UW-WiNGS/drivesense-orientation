@@ -8,8 +8,8 @@ import io.SqliteAccess;
 import java.util.ArrayList;
 import java.util.List;
 
+import tracereplay.RealTimeBehaviorDetector;
 import utility.Constants;
-import utility.Formulas;
 import utility.Log;
 import utility.PreProcess;
 import utility.Trace;
@@ -19,7 +19,10 @@ public class CovarianceAndAlignmentError {
 	private final static String TAG = "CovarianceAndAlignmentError";
 	
 	public static void start() {
-		calculateDistortionAndError();
+		
+		evaluateIntraClusterVariance();
+		
+		//calculateDistortionAndError();
 		//correlationBetweenCovarianceAndError();
 		
 		//outputVariousOrientation();
@@ -45,9 +48,41 @@ public class CovarianceAndAlignmentError {
 			    break;
 			}
 			
-			double distortion = OrientationChangeDetection.clusterDistortion(accelerometer);
+			double distortion = SensorCluster.calculateClusterVariance(accelerometer);
 			Log.log(TAG, distortion);
 			//break;
+		}
+	}
+	
+	
+	public static void evaluateIntraClusterVariance() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		String output = Constants.outputPath + "variance/drivers/";
+
+		int counter = 0;
+		for(String directory: folders) {
+			String names[] = directory.split("/");
+			List<Trace> variances = new ArrayList<Trace>();
+			List<Trip> highway = ReadWriteTrace.loadTrips(directory.concat("/highway"));
+			List<Trip> urban = ReadWriteTrace.loadTrips(directory.concat("/urban"));
+			
+			List<Trip> trips = highway;
+			trips.addAll(urban);
+			for(Trip trip: trips) {
+				List<Trace> accelerometer = processTrip(trip);
+				if(accelerometer.size() < 600 || OrientationChangeDetection.orientationChanged(accelerometer)) {
+					//Log.log(TAG, trip.path, "too short");
+					continue;
+				}
+				variances.addAll(SensorCluster.slidingVariance(accelerometer, 10 * 60));
+				
+				if(variances.size() > 100000) {
+					break;
+				}
+			}
+			
+			ReadWriteTrace.writeFile(variances, output.concat(names[names.length - 1] + ".dat"));
+			counter++;
 		}
 	}
 	
@@ -74,12 +109,16 @@ public class CovarianceAndAlignmentError {
 				List<Trace> accelerometer = processTrip(trip);
 				if(accelerometer.size() < 10) continue;
 				//double distortion = OrientationChangeDetection.clusterDistortion(accelerometer);
-				List<Trace> distortions = OrientationChangeDetection.trackClusterDistortion(accelerometer);
+				List<Trace> distortions = SensorCluster.trackClusterVariance(accelerometer);
 				Trace distor = PreProcess.getTraceAt(distortions, 30*1000);
 				if(distor == null) continue;
 				double distortion = distor.values[2];
 				
-				Trace error = CoordinateAlignment.alignmentPerformance(trip);
+				RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+				CoordinateAlignment.trainDetector(detector, trip);
+				Trace error = CoordinateAlignment.alignmentPerformance(trip, detector);
+				
+				
 				if(error == null) continue;
 				Trace tr = new Trace(error.dim + 1);
 				tr.values[0] = distortion;
@@ -120,7 +159,8 @@ public class CovarianceAndAlignmentError {
 			}
 			
 		}
-		return res;
+		//return res;
+		return accelerometer;
 	}
 	
 	

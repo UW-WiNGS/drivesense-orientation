@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.google.gson.Gson;
 
+import sensors.OrientationChangeDetection;
 import tracereplay.RealTimeBehaviorDetector;
 import tracereplay.TraceReplayEngine;
 import utility.Constants;
@@ -25,33 +26,19 @@ public class GPSDirection {
 	private static boolean DEBUG = true;
 		
 	public static void start() {
+		compareGPSandGyroSteeringMotions();
+		
+	}
+	private static void GPSSteeringExample() {
 		String outfolder = Constants.outputPath.concat("gpsdirection/comparelanechange/");
 		List<String> folders = DirectoryWalker.getFolders(Constants.datPath.concat("altima/urban"));
 		List<Trace> gps = null;
 		List<Trace> rotated_gyroscope = null;
-				
-		/*
-		for(String directory: folders) {
-			//Log.log(TAG, directory);
-			List<Trip> trips = ReadWriteTrace.loadTrips(directory);
-			for(Trip trip: trips) {
-				Log.log(TAG, trip.path);
-				gps = turnExtraction(trip.gps_elevation_);
-				//rotated_gyroscope = initProjectGyroscope(trip);
-				break;
-			}
-			break;
-		}
-		*/
 		
-		Trip trip = ReadWriteTrace.loadTrip(Constants.datPath.concat("lei/urban/1398645857108/"));
-		
+		Trip trip = ReadWriteTrace.loadTrip(Constants.datPath.concat("lei/highway/1423344301931/"));
 		
 		Log.log(TAG, trip.path);
 		List<Trace> raw = steeringExtractionByGPS(trip.gps_elevation_);
-		
-		//gps = steeringExtractionByGPS(trip.gps_elevation_);
-		
 		gps = PreProcess.exponentialMovingAverage(raw, 5);
 		
 		rotated_gyroscope = initProjectGyroscope(trip);
@@ -67,10 +54,99 @@ public class GPSDirection {
 		ReadWriteTrace.writeFile(gps, outfolder.concat("gps.dat"));
 		ReadWriteTrace.writeFile(rotated_gyroscope, outfolder.concat("rotated_gyroscope.dat"));
 		
-		
-		//goOverAllTheDataForTurns();
-		//Log.log(TAG, (double)found/total);
 	}
+	
+	
+	public static void compareGPSandGyroSteeringMotions() {
+		List<String> folders = DirectoryWalker.getFolders(Constants.datPath);
+		String outpath = Constants.kAlterSenseOutput.concat("gpsdirection/steering/");
+		
+		List<List<Trace>> dict = new ArrayList<List<Trace>>();
+		for(int i = 0; i < 4; i++) {
+			List<Trace> cur = new ArrayList<Trace>();
+			dict.add(cur);
+		}
+		
+		for(String directory: folders) {
+			List<Trace> output = new ArrayList<Trace>();
+			String names[] = directory.split("/");
+			//Log.log(TAG, directory);
+			String highway = directory.concat("/highway");
+			String urban = directory.concat("/urban");
+			
+			List<Trip> htrips = ReadWriteTrace.loadTrips(highway);
+			
+			List<Trip> trips = ReadWriteTrace.loadTrips(urban);
+			trips.addAll(htrips);
+			for(Trip trip: trips) {
+				List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
+				if(accelerometer.size() < 600 || OrientationChangeDetection.orientationChanged(accelerometer)) {
+					//Log.log(TAG, trip.path, "too short");
+					continue;
+				}
+				
+				List<Trace> raw = steeringExtractionByGPS(trip.gps_elevation_);
+				List<Trace> gps = PreProcess.exponentialMovingAverage(raw, 5);
+				
+				List<Trace> rotated_gyroscope = initProjectGyroscope(trip);
+				
+				compareSteeringOfSpeeds(gps, rotated_gyroscope, dict);
+
+			}
+		}
+		for(int i = 0; i < 4; ++i) {
+			ReadWriteTrace.writeFile(dict.get(i), outpath.concat(i + ".dat"));	
+		}
+	}
+	
+	private static void compareSteeringOfSpeeds(List<Trace> gps, List<Trace> gyro, List<List<Trace>> dict) {
+		List<Trace> res = new ArrayList<Trace>();
+		int counter = 0;
+		for(int i = 0 ; i < gps.size() - 1; ++i) {
+			Trace curgps = gps.get(i);
+			double steer = curgps.values[5];
+			Trace curgyro = PreProcess.getTraceAt(gyro, curgps.time);
+			if(curgyro == null) continue;
+			Trace cur = new Trace(1);
+			cur.values[0] = curgps.values[5]/Constants.kRadianToDegree - curgyro.values[2];
+			
+			if(Math.abs(cur.values[0]) > 0.4) {
+				counter++;
+			}
+		}
+		if(counter >= gps.size()/10) {
+			return;
+		}
+		
+		for(int i = 0 ; i < gps.size() - 1; ++i) {
+			Trace curgps = gps.get(i);
+			double steer = curgps.values[5];
+			Trace curgyro = PreProcess.getTraceAt(gyro, curgps.time);
+			if(curgyro == null) continue;
+			Trace cur = new Trace(3);
+			cur.values[0] = curgps.values[5]/Constants.kRadianToDegree - curgyro.values[2];
+			cur.values[1] = curgps.values[5]/Constants.kRadianToDegree;
+			cur.values[2] = curgyro.values[2];
+			
+			if(Math.abs(cur.values[2]) < 0.02) {
+				continue;
+			}
+	
+			double curspeed = curgps.values[3];			
+			int j = -1;
+			if(curspeed == 0.0) {
+				j = 0;
+			} else if(curspeed < 10.0) {
+				j = 1;
+			} else if(curspeed < 20.0) {
+				j = 2;
+			} else {
+				j = 3;
+			}
+			dict.get(j).add(cur);
+		}
+	}
+
 	
 	
 	private static void goOverAllTheDataForTurns() {
@@ -235,7 +311,7 @@ public class GPSDirection {
 	 * @return
 	 */
 	
-	private static List<Trace> steeringExtractionByGPS(List<Trace> gps) {
+	public static List<Trace> steeringExtractionByGPS(List<Trace> gps) {
 		List<Trace> res = new ArrayList<Trace>();
 		for(int i = 0; i < gps.size() - 1; ++i) {
 			Trace cur = gps.get(i);
@@ -257,9 +333,6 @@ public class GPSDirection {
 			if(sz >= 1) {
 				Trace pre = res.get(sz - 1);
 				pre.values[5] = GPSAbstraction.turnAngle(pre.values[4], ntr.values[4])/((ntr.time - pre.time)/1000.0);
-				
-				if(pre.time >= 110171 - 5000 && pre.time <= 116848 + 5000 && DEBUG == true)
-					Log.log(TAG, pre);
 			}
 			res.add(ntr);
 		}

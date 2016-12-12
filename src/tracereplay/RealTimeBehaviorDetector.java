@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import sensors.SensorCluster;
 import utility.Constants;
 import utility.Formulas;
 import utility.Log;
@@ -23,7 +24,7 @@ public class RealTimeBehaviorDetector {
 	private List<Trace> window_rotation_matrix = new LinkedList<Trace>();
 	private Trace curSmoothedAccelerometer = null;
 	private Trace curSmoothedGyroscope = null;
-	final int kWindowSize = 10;
+	final int kWindowSize = 15;
 		
 	/**
 	 * the only input point
@@ -69,6 +70,14 @@ public class RealTimeBehaviorDetector {
 	
 	private double gravity_ = 0.0;
 	
+	private int train_len_ = 30;
+	public void setTrainLength(int len) {
+		this.train_len_ = len;
+	}
+	public int getTrainLength() {
+		return this.train_len_;
+	}
+	
 	private void onAccelerometerChanged(Trace accelerometer) {
 		
 		curSmoothedAccelerometer = lowpassFilter(curSmoothedAccelerometer, accelerometer);
@@ -103,18 +112,20 @@ public class RealTimeBehaviorDetector {
 				//put current train sample into train set
 				if(trainsample_ != null) {
 					int trainlen = trainsample_.size();
-					if(trainlen >= 30) {
+					
+					//we use small segment to train
+					if(trainlen >= this.train_len_) {
+						trainset_.add(trainsample_);		
+					}
+					
+					if(trainlen >= this.train_len_) {
 						//training opportunity
 						calculateHorizontalRM(trainsample_);
-						trainset_.add(trainsample_);		
-						//Log.log("training opportunity", trainsample_.get(0).time, trainsample_.get(trainlen - 1).time);
 					}
-					if (trainlen >= 15) {
-						//Log.log("calibration opportunity", trainsample_.get(0).time, trainsample_.get(trainlen - 1).time);
-						//trainset_.add(trainsample_);
-						//calibration opportunity
+					if (trainlen >= this.train_len_) {
 						calibrateByAccelerometer(trainsample_);
 					}
+					
 				}
 				trainsample_ = null;
 			}
@@ -214,8 +225,10 @@ public class RealTimeBehaviorDetector {
 	 * @param window
 	 * @return
 	 */
-	private boolean isStraight(List<Trace> window) {
-		final double threshold = 0.005; //0.008;
+	public boolean isStraight(List<Trace> window) {
+		//final double threshold = 0.005; 
+		final double threshold = 0.004; //0.008;
+		
 		double[] devi = Formulas.standardDeviation(window);
 		for(int i = 0; i < devi.length; ++i) {
 			if(devi[i] >= threshold) {
@@ -231,19 +244,14 @@ public class RealTimeBehaviorDetector {
 	 * @return
 	 */
 	public boolean stopped(List<Trace> window) {
-		final double threshold = 0.05;
-		double sum = 0.0;
-		double[] devi = Formulas.standardDeviation(window);
-		for(int i = 0; i < devi.length; ++i) {
-			if(devi[i] >= threshold) {
-				sum += devi[i];
-			}
-		}
-		if(sum <= threshold) {
+		final double threshold = 0.004;
+		double variance = SensorCluster.calculateClusterVariance(window);
+		if(variance <= threshold) {
 			return true;
 		} else {
 			return false;
 		}
+		
 	}
 	
 	

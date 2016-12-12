@@ -1,5 +1,7 @@
 package utility;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.math3.fitting.PolynomialCurveFitter;
@@ -8,6 +10,32 @@ import org.apache.commons.math3.fitting.WeightedObservedPoints;
 
 public class Formulas {
 	
+	
+
+	public static Trace percentileAccuracy(List<Trace> errors, final int index) {
+		
+		Collections.sort(errors, new Comparator<Trace>() {
+			public int compare(Trace tr0, Trace tr1) {
+				if (tr0.values[index] < tr1.values[index])
+					return -1;
+				else if (tr0.values[index] > tr1.values[index])
+					return 1;
+				else
+					return 0;
+	        }
+	    });
+		int num = 10;
+		int sz = errors.size();
+		if(sz < num) {
+			return null;
+		}
+		
+		Trace res = new Trace(num);
+		for(int i = 0; i < num; ++i) {
+			res.values[i] = errors.get(sz/num * (i + 1) - 1).values[index];
+		}
+		return res;
+	}
 	
 	/**
 	 * Calculate the euclidean distance between two traces
