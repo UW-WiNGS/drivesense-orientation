@@ -29,6 +29,8 @@ public class Main {
 		
 		//XSense.start();
 		
-		WildEvaluation.start();
+		//WildEvaluation.start();
+		
+		Android.start();
 	}
 }

@@ -41,6 +41,8 @@ public class RealTimeBehaviorDetector {
 			if(window_rotation_matrix.size() > kWindowSize) {
 				window_rotation_matrix.remove(0);
 			}
+		} else if(type.equals(Trace.GPS)) {
+			onGPSChanged(trace);
 		} else {
 			Log.log("Uncaptured trace type", trace.toString());
 		}
@@ -76,6 +78,10 @@ public class RealTimeBehaviorDetector {
 	}
 	public int getTrainLength() {
 		return this.train_len_;
+	}
+	
+	private void onGPSChanged(Trace gps) {
+		
 	}
 	
 	private void onAccelerometerChanged(Trace accelerometer) {
