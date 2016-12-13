@@ -42,7 +42,7 @@ public class RealTimeTiltCalculation {
 				window_rotation_matrix.remove(0);
 			}
 		} else {
-			Log.log("Uncaptured trace type", trace.toString());
+			Log.d("Uncaptured trace type", trace.toString());
 		}
 	}
 	

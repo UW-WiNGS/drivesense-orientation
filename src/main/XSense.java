@@ -9,7 +9,7 @@ import java.util.List;
 
 import sensors.CoordinateAlignment;
 import sensors.OrientationChangeDetection;
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import utility.Constants;
 import utility.PreProcess;
 import utility.Trace;
@@ -60,7 +60,7 @@ public class XSense {
 		List<Trace> speed = CoordinateAlignment.calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 1.0));		
 		List<Trace> gps = PreProcess.exponentialMovingAverage(GPSAbstraction.wrapperGPS(trip.gps_elevation_), 3);
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		CoordinateAlignment.trainDetector(detector, trip);
 		List<Trace> projected_accelerometer = CoordinateAlignment.alignAccelerometer(trip, detector);
 		if(projected_accelerometer == null) {
@@ -83,7 +83,7 @@ public class XSense {
 		List<Trace> speed = CoordinateAlignment.calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 1.0));		
 		List<Trace> gps = PreProcess.exponentialMovingAverage(GPSAbstraction.wrapperGPS(trip.gps_elevation_), 3);
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		CoordinateAlignment.trainDetector(detector, trip);
 		List<Trace> projected_accelerometer = CoordinateAlignment.alignAccelerometer(trip, detector);
 		if(projected_accelerometer == null) {

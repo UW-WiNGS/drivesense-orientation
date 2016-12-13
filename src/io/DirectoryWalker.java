@@ -26,20 +26,20 @@ public class DirectoryWalker {
 		if(cur.exists()) {
 			walk(cur.getAbsoluteFile());	
 		} else {
-			Log.log(root + " does not exists!");
+			Log.d(root + " does not exists!");
 		}
 		return files_;
 	}
 	
 	public static void createFolder(String directory) {
-		Log.log(TAG, "create folder:" + directory);
+		Log.d(TAG, "create folder:" + directory);
 		File dir = new File(directory);
 		if(dir.exists()) {
-			Log.log(TAG, directory + " already exists");
+			Log.d(TAG, directory + " already exists");
 			return;
 		}
 		if(true != dir.mkdirs()) {
-			Log.log(TAG, "create folder error: folder:" + directory);
+			Log.d(TAG, "create folder error: folder:" + directory);
 		}
 	}
 	

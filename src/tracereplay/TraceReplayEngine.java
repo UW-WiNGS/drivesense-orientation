@@ -10,7 +10,7 @@ public class TraceReplayEngine {
 	 * @param input
 	 * @param detector
 	 */
-	public static void traceReplay(List<List<Trace> > input, RealTimeBehaviorDetector detector) {
+	public static void traceReplay(List<List<Trace> > input, RealTimeSensorProcessing detector) {
 		int num = input.size();
 		int index[] = new int[num];
 		for(int i = 0; i < num; ++i) {

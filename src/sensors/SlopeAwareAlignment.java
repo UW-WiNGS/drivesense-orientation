@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import tracereplay.TraceReplayEngine;
 import utility.Constants;
 import utility.Formulas;
@@ -78,7 +78,7 @@ public class SlopeAwareAlignment {
 		ReadWriteTrace.writeFile(output, Constants.kAlterSenseOutput.concat("trainlength/error.dat"));
 	}
 	private static List<Trace> alignmentError(List<Trip> trips, int len) {
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		detector.setTrainLength(len);
 		List<Trace> errors = new ArrayList<Trace>();
 		for(Trip trip: trips) {
@@ -137,7 +137,7 @@ public class SlopeAwareAlignment {
 	
 
 	
-	private static void trainSetTest(RealTimeBehaviorDetector detector, String output) {
+	private static void trainSetTest(RealTimeSensorProcessing detector, String output) {
 		
 		List<List<Trace>> trainset = detector.getTrainSet();
 		int sz = trainset.size();
@@ -147,7 +147,7 @@ public class SlopeAwareAlignment {
 		for(int i = 0; i < trainset.size(); ++i) {
 			List<Trace> subset = trainset.get(i);
 			List<Trace> projected = new ArrayList<Trace>();
-			Log.log(TAG, subset.size());
+			Log.d(TAG, subset.size());
 			for(Trace trace: subset) {
 				Trace initrot = Formulas.rotate(trace, rm.values);
 				Trace hrot = Formulas.rotate(initrot, hrm.values);
@@ -182,7 +182,7 @@ public class SlopeAwareAlignment {
 		input.add(accelerometer);
 		input.add(gyroscope);
 		input.add(rotation_matrix);
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		TraceReplayEngine.traceReplay(input, detector);
 		
 		
@@ -191,7 +191,7 @@ public class SlopeAwareAlignment {
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();
 		if(rm == null || hrm == null) {
-			Log.log(TAG, "train failed");
+			Log.d(TAG, "train failed");
 		}
 		int reverse_counter = 0;
 		List<Trace> projected_accelerometer = new ArrayList<Trace>();
@@ -289,7 +289,7 @@ public class SlopeAwareAlignment {
 		input.add(gyroscope);
 		input.add(rotation_matrix);
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		TraceReplayEngine.traceReplay(input, detector);
 				
 		List<List<Trace>> trainset = detector.getTrainSet();
@@ -300,7 +300,7 @@ public class SlopeAwareAlignment {
 		Trace gyrodrift = detector.getGyroDrift();
 		
 		
-		Log.log(trainset.size());
+		Log.d(trainset.size());
 		
 		List<Trace> stateortheart = new ArrayList<Trace>();
 		
@@ -343,7 +343,7 @@ public class SlopeAwareAlignment {
 					vtrain.add(trace);
 			}
 			double [] vcoeff = Formulas.curveFit(vtrain, 1, 2);
-			Log.log(vtrain.size(), vcoeff[0], vcoeff[1]);
+			Log.d(vtrain.size(), vcoeff[0], vcoeff[1]);
 			
 			
 			ReadWriteTrace.writeFile(vtrain, opath + "/sample" + i + ".dat");

@@ -9,7 +9,7 @@ import java.util.List;
 import com.google.gson.Gson;
 
 import sensors.OrientationChangeDetection;
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import tracereplay.TraceReplayEngine;
 import utility.Constants;
 import utility.Formulas;
@@ -37,7 +37,7 @@ public class GPSDirection {
 		
 		Trip trip = ReadWriteTrace.loadTrip(Constants.datPath.concat("lei/highway/1423344301931/"));
 		
-		Log.log(TAG, trip.path);
+		Log.d(TAG, trip.path);
 		List<Trace> raw = steeringExtractionByGPS(trip.gps_elevation_);
 		gps = PreProcess.exponentialMovingAverage(raw, 5);
 		
@@ -154,7 +154,7 @@ public class GPSDirection {
 		List<Trace> output = new ArrayList<Trace>();
 		String type = "highway";
 		for(String directory: folders) {
-			Log.log(TAG, directory);
+			Log.d(TAG, directory);
 			String folder = directory.concat("/" + type);
 			List<Trip> trips = ReadWriteTrace.loadTrips(folder);
 			for(Trip trip: trips) {
@@ -162,7 +162,7 @@ public class GPSDirection {
 				List<Trace> rotated_gyroscope = initProjectGyroscope(trip);
 				List<Pattern> turns = TurnExtraction.extractTurns(rotated_gyroscope);
 				
-				Log.log(TAG, trip.path);
+				Log.d(TAG, trip.path);
 				List<Trace> tmp = compareWithGPSForTurns(gps, turns);
 				output.addAll(tmp);
 			}
@@ -199,7 +199,7 @@ public class GPSDirection {
 			}
 			
 			
-			Log.log(TAG, start, end);
+			Log.d(TAG, start, end);
 			/*
 			Trace ntr = new Trace(2);
 			ntr.values[0] = turn.accumulated_change;
@@ -260,8 +260,8 @@ public class GPSDirection {
 			if(Math.abs(turn.accumulated_change - gpsaccum) >= 60) {
 				continue;
 			}
-			Log.log(TAG, turn.start, turn.end);
-			Log.log(TAG, turn.accumulated_change, gpsaccum);
+			Log.d(TAG, turn.start, turn.end);
+			Log.d(TAG, turn.accumulated_change, gpsaccum);
 
 			total++;
 			if(Math.abs(gpsaccum) >= 60) {
@@ -288,7 +288,7 @@ public class GPSDirection {
 		input.add(gyroscope);
 		input.add(rotation_matrix);
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		TraceReplayEngine.traceReplay(input, detector);
 				
 		Trace rm = detector.getInitRM();

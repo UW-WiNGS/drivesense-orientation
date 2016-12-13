@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import sensors.SensorCluster;
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import tracereplay.TraceReplayEngine;
 import utility.Constants;
 import utility.Log;
@@ -24,7 +24,7 @@ public class Android {
 		List<String> files = suman;
 		
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		
 		List<Trace> res = new ArrayList<Trace>();
 		for(String file: files) {
@@ -40,7 +40,7 @@ public class Android {
 	}
 	
 	
-	public static void test(RealTimeBehaviorDetector detector, Trip trip) {
+	public static void test(RealTimeSensorProcessing detector, Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);

@@ -131,7 +131,7 @@ public class Trip {
 	}
 	
 	public void flushOBDDataToFolder(String outfolder) {
-		Log.log(TAG, "flush obd data to " + outfolder);
+		Log.d(TAG, "flush obd data to " + outfolder);
 		ReadWriteTrace.writeFile(fl_, outfolder.concat("fuellevel.dat"));
 		ReadWriteTrace.writeFile(speed_, outfolder.concat("speed.dat"));
 		ReadWriteTrace.writeFile(rpm_, outfolder.concat("rpm.dat"));
@@ -143,7 +143,7 @@ public class Trip {
 	}
 	
 	public void flushSensorDataToFolder(String outfolder) {
-		Log.log(TAG, "flush sensor data to " + outfolder);
+		Log.d(TAG, "flush sensor data to " + outfolder);
 		ReadWriteTrace.writeFile(gps_, outfolder.concat("gps.dat"));
 		if(false == Trip.nosensor_) {
 			Log.error(accelerometer_.size(), outfolder.concat("accelerometer.dat"));
@@ -247,7 +247,7 @@ public class Trip {
 		for(int i = 0; i < sz - 1; ++i) {
 			long time = maf.get(i + 1).time - maf.get(i).time;
 			if(time < 0) {
-				Log.log(TAG, "different trip");
+				Log.d(TAG, "different trip");
 				continue;
 			}
 			double sec = time / 1000.0;

@@ -105,7 +105,7 @@ public class SqliteAccess {
 	
 	public static List<Trace> loadOBDData(String path, long start, String type) {
 	
-		Log.log(TAG, "Load OBD data from " + path);
+		Log.d(TAG, "Load OBD data from " + path);
 		connect(prefix.concat(path));
 		
 		List<Trace> res = new ArrayList<Trace>();

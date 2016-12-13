@@ -9,7 +9,7 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import tracereplay.TraceReplayEngine;
 import utility.Constants;
 import utility.Formulas;
@@ -79,7 +79,7 @@ public class CoordinateAlignment {
 	}
 	
 	
-	public static List<Trace> alignAccelerometer(RealTimeBehaviorDetector detector, Trip trip) {
+	public static List<Trace> alignAccelerometer(RealTimeSensorProcessing detector, Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
@@ -138,7 +138,7 @@ public class CoordinateAlignment {
 		}
 	}
 	
-	public static Trace alignmentPerformance(Trip trip, RealTimeBehaviorDetector detector) {
+	public static Trace alignmentPerformance(Trip trip, RealTimeSensorProcessing detector) {
 		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
 
 		List<Trace> projected_accelerometer = alignAccelerometer(detector, trip);
@@ -191,7 +191,7 @@ public class CoordinateAlignment {
 	 * @return
 	 */
 	private static List<Trace> compareAccelerometerAndOBD(Trip trip) {
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		trainDetector(detector, trip);
 		List<Trace> accelerometer = alignAccelerometer(trip, detector);
 		if(accelerometer == null) {
@@ -226,7 +226,7 @@ public class CoordinateAlignment {
 		return res;
 	}
 	
-	public static List<Trace> alignAccelerometer(Trip trip, RealTimeBehaviorDetector detector) {
+	public static List<Trace> alignAccelerometer(Trip trip, RealTimeSensorProcessing detector) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> speed = calculateAccelerationByOBD(PreProcess.interpolate(trip.speed_, 2.0));		
 		/** 
@@ -266,7 +266,7 @@ public class CoordinateAlignment {
 		return projected_accelerometer;
 	}
 	
-	public static void trainDetector(RealTimeBehaviorDetector detector, Trip trip) {
+	public static void trainDetector(RealTimeSensorProcessing detector, Trip trip) {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		List<Trace> rotation_matrix = PreProcess.exponentialMovingAverage(trip.rotation_matrix_, -1);
@@ -286,7 +286,7 @@ public class CoordinateAlignment {
 		List<Trace> accelerometer = PreProcess.exponentialMovingAverage(trip.accelerometer_, -1);
 		List<Trace> gyroscope = PreProcess.exponentialMovingAverage(trip.gyroscope_, -1);
 		
-		RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+		RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 		trainDetector(detector, trip);
 		Trace rm = detector.getInitRM();
 		Trace hrm = detector.getHorizontalRM();

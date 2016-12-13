@@ -36,7 +36,7 @@ public class OrientationChangeDetection {
 		String input = Constants.kUncontrol + "controlled/orientation_change/";
 		String output = Constants.outputPath + "orientation/orientationchange/data/";
 		List<String> files = DirectoryWalker.getFileNames(input);
-		Log.log(TAG, files);
+		Log.d(TAG, files);
 		for(String file: files) {
 			String name = file.substring(file.length() - 16, file.length() - 3);
 			long time = Long.valueOf(name);
@@ -68,7 +68,7 @@ public class OrientationChangeDetection {
 				return true;
 			} else {
 				if(transition == true) {
-					Log.log(TAG, cur.time, m2);
+					Log.d(TAG, cur.time, m2);
 					transition = false;
 					break;
 				}
@@ -101,12 +101,12 @@ public class OrientationChangeDetection {
 			
 			if(m2 > Constants.kOrientationChangeVarianceThreshold) {
 				if(transition == false) {
-					Log.log(TAG, cur.time, trip.path);
+					Log.d(TAG, cur.time, trip.path);
 				}
 				transition = true;
 			} else {
 				if(transition == true) {
-					Log.log(TAG, cur.time, m2);
+					Log.d(TAG, cur.time, m2);
 					transition = false;
 					break;
 				}
@@ -147,12 +147,12 @@ public class OrientationChangeDetection {
 			
 			if(m2 > Constants.kOrientationChangeVarianceThreshold) {
 				if(transition == false) {
-					Log.log(TAG, cur.time, "start");
+					Log.d(TAG, cur.time, "start");
 				}
 				transition = true;
 			} else {
 				if(transition == true) {
-					Log.log(TAG, cur.time, m2);
+					Log.d(TAG, cur.time, m2);
 					transition = false;
 				}
 			}
@@ -224,10 +224,10 @@ public class OrientationChangeDetection {
 			double dist = GPSAbstraction.accumulatedDistance(trip.gps_);
 			sum += dist;
 
-			Log.log(file, dist, trip.path);			
+			Log.d(file, dist, trip.path);			
 			List<Trace> accelerometer = processTrip(trip);			
 			double distortion = SensorCluster.calculateClusterVariance(accelerometer);
-			Log.log(TAG, distortion);
+			Log.d(TAG, distortion);
 			
 			List<Trace> distortionchange = SensorCluster.trackClusterVariance(accelerometer);
 			long end = distortionchange.get(distortionchange.size() - 1).time;

@@ -8,7 +8,7 @@ import io.SqliteAccess;
 import java.util.ArrayList;
 import java.util.List;
 
-import tracereplay.RealTimeBehaviorDetector;
+import tracereplay.RealTimeSensorProcessing;
 import utility.Constants;
 import utility.Log;
 import utility.PreProcess;
@@ -49,7 +49,7 @@ public class CovarianceAndAlignmentError {
 			}
 			
 			double distortion = SensorCluster.calculateClusterVariance(accelerometer);
-			Log.log(TAG, distortion);
+			Log.d(TAG, distortion);
 			//break;
 		}
 	}
@@ -105,7 +105,7 @@ public class CovarianceAndAlignmentError {
 			trips.addAll(highway);
 			
 			for(Trip trip: trips) {
-				Log.log(TAG, trip.path);
+				Log.d(TAG, trip.path);
 				List<Trace> accelerometer = processTrip(trip);
 				if(accelerometer.size() < 10) continue;
 				//double distortion = OrientationChangeDetection.clusterDistortion(accelerometer);
@@ -114,7 +114,7 @@ public class CovarianceAndAlignmentError {
 				if(distor == null) continue;
 				double distortion = distor.values[2];
 				
-				RealTimeBehaviorDetector detector = new RealTimeBehaviorDetector();
+				RealTimeSensorProcessing detector = new RealTimeSensorProcessing();
 				CoordinateAlignment.trainDetector(detector, trip);
 				Trace error = CoordinateAlignment.alignmentPerformance(trip, detector);
 				
@@ -129,7 +129,7 @@ public class CovarianceAndAlignmentError {
 					continue;
 				}
 				
-				Log.log(TAG, tr.toJson());
+				Log.d(TAG, tr.toJson());
 				
 				if(distortion < 0.15) {
 					output0.add(tr);			
@@ -195,7 +195,7 @@ public class CovarianceAndAlignmentError {
 		}
 		
 		for(int i = 0; i < group; ++i) {
-			Log.log(TAG, accuracy[i]/counter[i]);
+			Log.d(TAG, accuracy[i]/counter[i]);
 		}
 		
 		/*

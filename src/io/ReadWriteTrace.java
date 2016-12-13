@@ -26,7 +26,7 @@ public class ReadWriteTrace {
 	 * @return
 	 */
 	public static List<Trip> loadNTrips(String folder, int n) {
-		Log.log(folder);
+		Log.d(folder);
 		List<String> folders = DirectoryWalker.getFolders(folder);
 		Collections.sort(folders);
 		//trips used to calculate fuel consumption
@@ -38,7 +38,7 @@ public class ReadWriteTrace {
 			if(cc > n)
 				break;
 			//load the trip
-			Log.log("load trip from", cc, cur);
+			Log.d("load trip from", cc, cur);
 			Trip trip = loadTrip(cur);
 			trips.add(trip);
 			
@@ -80,7 +80,7 @@ public class ReadWriteTrace {
 			cur = cur.concat(Constants.slash);
 			//load the trip
 			if(LOG) {
-				Log.log("load trip from", cur);
+				Log.d("load trip from", cur);
 			}
 			Trip trip = loadTrip(cur);
 			trips.add(trip);

@@ -11,11 +11,11 @@ import utility.Log;
 import utility.PreProcess;
 import utility.Trace;
 
-public class RealTimeBehaviorDetector {
+public class RealTimeSensorProcessing {
 	
-	private static final String TAG = "RealTimeBehaiorDetector";
+	private static final String TAG = "RealTimeSensorProcessing";
 
-	public RealTimeBehaviorDetector() {
+	public RealTimeSensorProcessing() {
 		
 	}
 	
@@ -25,6 +25,8 @@ public class RealTimeBehaviorDetector {
 	private Trace curSmoothedAccelerometer = null;
 	private Trace curSmoothedGyroscope = null;
 	final int kWindowSize = 15;
+	
+	
 		
 	/**
 	 * the only input point
@@ -43,8 +45,10 @@ public class RealTimeBehaviorDetector {
 			}
 		} else if(type.equals(Trace.GPS)) {
 			onGPSChanged(trace);
+		} else if(type.equals(Trace.MAGNETOMETER)){
+			onMagnetometerChanged(trace);
 		} else {
-			Log.log("Uncaptured trace type", trace.toString());
+			Log.d("Uncaptured trace type", trace.toString());
 		}
 	}
 	
@@ -80,6 +84,10 @@ public class RealTimeBehaviorDetector {
 		return this.train_len_;
 	}
 	
+	private void onMagnetometerChanged(Trace magnetometer) {
+		
+	}
+	
 	private void onGPSChanged(Trace gps) {
 		
 	}
@@ -88,6 +96,9 @@ public class RealTimeBehaviorDetector {
 		
 		curSmoothedAccelerometer = lowpassFilter(curSmoothedAccelerometer, accelerometer);
 		window_accelerometer.add(curSmoothedAccelerometer);
+		
+		detectOrientationChange(curSmoothedAccelerometer);
+		monitorStability(curSmoothedAccelerometer);
 		
 		if(window_accelerometer.size() >= kWindowSize) {
 			stopped_ = stopped(window_accelerometer);
@@ -140,7 +151,7 @@ public class RealTimeBehaviorDetector {
 	}
 	
 	public Trace calculateDirectionVector(List<Trace> trainsample) {
-		Log.log(TAG, "calculateDirectionVector");
+		Log.d(TAG, "calculateDirectionVector");
 		Trace direction = new Trace(3);
 		List<Trace> window = new ArrayList<Trace>();
 		List<Integer> pattern = new ArrayList<Integer>();		
@@ -272,4 +283,68 @@ public class RealTimeBehaviorDetector {
 		}
 		return res;
 	}
+	
+	
+	public static double calculateClusterVariance(List<Trace> cluster) {
+		double mean = 0.0, M2 = 0.0;
+		Trace center = new Trace(3);
+		center.copyTrace(cluster.get(0));
+		int counter = 0;
+		for(int i = 1; i < cluster.size(); ++i) {
+			Trace cur = cluster.get(i);
+			double dist = 0.0;
+			dist = Formulas.euclideanDistance(center, cur);
+			counter ++;
+			for(int j = 0; j < center.dim; ++j) {
+				center.values[j] += (cur.values[j] - center.values[j])/counter; 
+			}
+			double delta = dist - mean;
+			mean += delta/counter;
+			M2 += delta * (dist - mean);
+		}
+		return M2/counter;
+	}
+	
+	private List<Trace> orientation_buffer_ = new ArrayList<Trace>();
+	private boolean orientation_changing_ = false;
+	private int number_of_orientation_changed = 0;
+	
+	public void detectOrientationChange(Trace accelerometer) {
+		
+		orientation_buffer_.add(accelerometer);
+		if(orientation_buffer_.size() > 30) orientation_buffer_.remove(0);						
+		
+		double m2 = calculateClusterVariance(orientation_buffer_);
+		
+		if(m2 > Constants.kOrientationChangeVarianceThreshold) {
+			if(orientation_changing_ == false) {
+				//start changeing
+				number_of_orientation_changed++;
+			}
+			orientation_changing_ = true;
+		} else {
+			if(orientation_changing_ == true) {
+				orientation_changing_ = false;
+				//chaning ends
+			}
+		}
+	}
+	
+	private List<Trace> mv_buffer_ = new ArrayList<Trace>();
+	private double avg_mv_ = 0.0;
+	private int mv_counter_ = 0;
+	public void monitorStability(Trace accelerometer) {
+		
+		if(this.orientation_changing_ == true) {
+			mv_buffer_.clear();
+		}
+		
+		mv_buffer_.add(accelerometer);
+		if(mv_buffer_.size() > 600) mv_buffer_.remove(0);						
+		
+		double m2 = calculateClusterVariance(mv_buffer_);
+		double sum = avg_mv_ * mv_counter_ + m2;
+		avg_mv_ = sum / (++mv_counter_);
+	}
+	
 }

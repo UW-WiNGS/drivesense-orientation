@@ -77,7 +77,7 @@ public class GPSandOBD {
 		List<Trace> res = new ArrayList<Trace>();
 
 		for(String directory: folders) {
-			Log.log(TAG, directory);
+			Log.d(TAG, directory);
 			String highway = directory.concat("/highway");
 			String urban = directory.concat("/urban");
 			

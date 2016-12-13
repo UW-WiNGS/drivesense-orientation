@@ -107,7 +107,7 @@ public class PreProcess {
 	public static List<Trace> weightedMovingAverage(List<Trace> traces, int wnd) {
 
 		int sz = traces.size();
-		Log.log(Thread.currentThread().getStackTrace()[1].getMethodName(), "the size of input traces is:" + String.valueOf(sz));
+		Log.d(Thread.currentThread().getStackTrace()[1].getMethodName(), "the size of input traces is:" + String.valueOf(sz));
 		LinkedList<Trace> sliding = new LinkedList<Trace>();
 		
 		List<Trace> res = new ArrayList<Trace>();

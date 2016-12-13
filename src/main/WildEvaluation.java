@@ -48,7 +48,7 @@ public class WildEvaluation {
 			
 			
 			int changes = detectOrientationChange(accelerometer);
-			Log.log(TAG, file, changes);
+			Log.d(TAG, file, changes);
 			//double distortion = SensorCluster.calculateClusterVariance(accelerometer);
 			//break;
 			

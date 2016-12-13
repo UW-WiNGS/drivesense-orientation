@@ -37,7 +37,7 @@ public class DBtoFile {
 		List<String> folders = DirectoryWalker.getFolders(dbPath);
 		for(String dir: folders) {
 			String nameFolder = dir.concat(Constants.slash);			
-			Log.log(nameFolder);
+			Log.d(nameFolder);
 			if(!nameFolder.contains(name))
 				continue;
 			List<String> subFolders = DirectoryWalker.getFolders(nameFolder);		
@@ -59,11 +59,11 @@ public class DBtoFile {
 
 	public static void convertDBtoDAT(String name, String folder, String outpath) {		
 
-		Log.log(name, folder, outpath);
+		Log.d(name, folder, outpath);
 		List<String> dbs = DirectoryWalker.getFileNames(folder);
 		Collections.sort(dbs);
 		for(String db: dbs) {
-			Log.log("converting db: ", db);
+			Log.d("converting db: ", db);
 			writeDBtoFile(folder, db, outpath + name);
 		}
 	}
@@ -92,7 +92,7 @@ public class DBtoFile {
 		} else {
 			flushFolder = outfolder + "urban/";		
 		}
-		Log.log(flushFolder);
+		Log.d(flushFolder);
 		DirectoryWalker.createFolder(flushFolder + String.valueOf(start));			
 			
 		trip.flushOBDDataToFolder(flushFolder + String.valueOf(start) + "/");

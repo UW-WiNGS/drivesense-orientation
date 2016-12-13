@@ -105,7 +105,7 @@ public class Trace {
             writer.endObject();
             writer.flush();
         } catch (Exception e) {
-            Log.log(this, "convert to json error!!!!");
+            Log.d(this, "convert to json error!!!!");
         }
         return sw.toString();
 	}
@@ -133,7 +133,7 @@ public class Trace {
             }
             reader.endObject();
         } catch (Exception e) {
-            Log.log(this, "parse from json error!!!!");
+            Log.d(this, "parse from json error!!!!");
         }
 		
 	}
