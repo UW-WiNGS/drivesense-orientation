@@ -27,6 +27,26 @@ public class RealTimeSensorProcessing {
 	final int kWindowSize = 15;
 	
 	
+	public double curTilt = 0.0;
+	private void calculateTilt() {
+		double x = curSmoothedAccelerometer.values[0];
+		double z = curSmoothedAccelerometer.values[2];
+		double angle = 0.0;
+		if(z == 0.0) {
+			angle = x > 0.0 ? -1.57 : 1.57;
+		} else {
+			angle = Math.atan(-x/z);
+		}
+		this.curTilt = Math.toDegrees(angle);
+	}
+	
+	private void steeringMonitoring() {
+		if(this.initRM_ == null) {
+			return;
+		}
+		Trace curProjectedGyroscope = Formulas.rotate(curSmoothedGyroscope, this.initRM_.values);
+		
+	}
 		
 	/**
 	 * the only input point
@@ -99,6 +119,7 @@ public class RealTimeSensorProcessing {
 		
 		detectOrientationChange(curSmoothedAccelerometer);
 		monitorStability(curSmoothedAccelerometer);
+		calculateTilt();
 		
 		if(window_accelerometer.size() >= kWindowSize) {
 			stopped_ = stopped(window_accelerometer);
@@ -235,6 +256,7 @@ public class RealTimeSensorProcessing {
 			straight_ = isStraight(window_gyroscope);
 			window_gyroscope.remove(0);
 		}
+		steeringMonitoring();
 	}
 	
 	/**
